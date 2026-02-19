@@ -1,5 +1,10 @@
 # rulesmith
 
+[![Build](https://img.shields.io/badge/build-pnpm%20-r%20build-blue?logo=pnpm)](#installation)
+[![Test](https://img.shields.io/badge/test-pnpm%20-r%20test-1f883d?logo=vitest)](#installation)
+[![npm (CLI)](https://img.shields.io/npm/v/rulesmith-cli?label=npm%20cli&logo=npm)](https://www.npmjs.com/package/rulesmith-cli)
+[![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
+
 **Map messy codebases safely. Generate evidence-backed agent instructions. Stay local-first.**
 
 `rulesmith` is an open-source **CLI + MCP server** for teams that want high-quality AI coding behavior on real-world repositories.
@@ -8,6 +13,19 @@ It does three things really well:
 - collects deterministic repository evidence (without hallucinating)
 - guides a repeatable mapping workflow for hosts like Codex / Claude / Junie
 - generates (or helps you author) strict instruction files for future AI runs
+
+## 1-Minute Quickstart
+
+![rulesmith quickstart GIF](https://dummyimage.com/1200x630/0f172a/e2e8f0.gif&text=rulesmith+1-minute+quickstart)
+
+```bash
+git clone <YOUR_REPO_URL> rulesmith
+cd rulesmith
+pnpm install && pnpm -r build
+node packages/cli/dist/index.js start /absolute/path/to/target-repo
+```
+
+If you want this block to show a real terminal demo, replace the image with your recorded GIF file (recommended path: `docs/assets/rulesmith-quickstart.gif`).
 
 ## Why this is useful
 
@@ -212,6 +230,12 @@ If you want to keep artifacts:
 ```
 
 ## Host integrations
+
+For full host-specific setup guides, see:
+- `docs/integrations/README.md`
+- `docs/integrations/codex.md`
+- `docs/integrations/claude.md`
+- `docs/integrations/junie.md`
 
 ## 1) Codex CLI
 
