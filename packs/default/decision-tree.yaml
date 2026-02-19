@@ -1,0 +1,38 @@
+version: 1
+nodes:
+  - name: laravel-core
+    all:
+      - framework_min_confidence:
+          name: laravel
+          min: 0.6
+    actions:
+      - include_snippets:
+          - laravel-conventions
+          - http-flow
+      - generate_area_instructions:
+          - name: routes
+            applyTo: routes/**/*.php
+          - name: controllers
+            applyTo: app/Http/Controllers/**/*.php
+  - name: flutter-core
+    all:
+      - framework_min_confidence:
+          name: flutter
+          min: 0.6
+    actions:
+      - include_snippets:
+          - flutter-structure
+      - generate_area_instructions:
+          - name: widgets
+            applyTo: lib/**/*.dart
+  - name: node-ts-core
+    any:
+      - language_min_confidence:
+          name: typescript
+          min: 0.5
+      - framework_min_confidence:
+          name: node
+          min: 0.5
+    actions:
+      - include_snippets:
+          - node-tooling

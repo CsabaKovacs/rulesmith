@@ -1,0 +1,30 @@
+{
+  "name": "@rulesmith/core",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "lint": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "diff": "^7.0.0",
+    "fast-glob": "^3.3.3",
+    "handlebars": "^4.7.8",
+    "js-yaml": "^4.1.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/diff": "^7.0.1",
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^22.13.10"
+  }
+}

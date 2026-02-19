@@ -1,0 +1,10 @@
+{
+  "name": "node-ts-min",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "lint": "eslint .",
+    "format": "prettier -w .",
+    "dev": "tsx src/index.ts"
+  }
+}

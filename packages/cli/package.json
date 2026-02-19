@@ -1,0 +1,20 @@
+{
+  "name": "rulesmith-cli",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "rulesmith": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run --passWithNoTests",
+    "lint": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@rulesmith/core": "workspace:*",
+    "commander": "^13.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10"
+  }
+}

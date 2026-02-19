@@ -1,0 +1,7 @@
+{
+  "name": "fixture/laravel",
+  "scripts": {
+    "test": "php artisan test",
+    "lint": "./vendor/bin/pint"
+  }
+}

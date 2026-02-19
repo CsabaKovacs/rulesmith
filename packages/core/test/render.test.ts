@@ -1,0 +1,70 @@
+import path from "node:path";
+import { describe, expect, it } from "vitest";
+import { renderRules } from "../src/render/index.js";
+
+const fixturesRoot = path.resolve(process.cwd(), "../../examples/fixtures");
+
+describe("renderer", () => {
+  it("renders all targets for laravel fixture", async () => {
+    const files = await renderRules({
+      repoPath: path.join(fixturesRoot, "laravel_messy_min"),
+      pack: "default",
+      targets: { codex: true, copilot: true, claude: true }
+    });
+
+    const agents = files.find((f) => f.path === "AGENTS.md");
+    const claude = files.find((f) => f.path === "CLAUDE.md");
+    const copilot = files.find((f) => f.path === ".github/copilot-instructions.md");
+    const area = files.find((f) => f.path.startsWith(".github/instructions/"));
+
+    expect(agents?.content).toContain("Setup Commands");
+    expect(agents?.content).toContain("Detailed Conventions");
+    expect(agents?.content).toContain("Routing Conventions");
+    expect(claude?.content).toContain("Execution Contract");
+    expect(claude?.content).toContain("Detailed Conventions");
+    expect(copilot?.content).toContain("GitHub Copilot Instructions");
+    expect(copilot?.content).toContain("Detailed Conventions");
+    expect(area?.content).toContain("applyTo");
+    expect(area?.content).toContain("Area-Specific Conventions");
+
+    expect(files.map((f) => f.path).sort()).toMatchSnapshot();
+  });
+
+  it("renders detailed generic rulebook for mixed-language fixture", async () => {
+    const files = await renderRules({
+      repoPath: path.join(fixturesRoot, "salad_min"),
+      pack: "default",
+      targets: { codex: true, copilot: false, claude: false },
+      policy: { strictness: "very-strict", standards: "project-plus-standard" }
+    });
+
+    const agents = files.find((f) => f.path === "AGENTS.md");
+    expect(agents?.content).toContain("Rule System Mode");
+    expect(agents?.content).toContain("Very-strict");
+    expect(agents?.content).toContain("Language and Framework Practices");
+    expect(agents?.content).toContain("Messy/Legacy Code Stabilization");
+    expect(agents?.content).toContain("Execution Guardrails");
+  });
+
+  it("supports short profiles for copilot and claude outputs", async () => {
+    const files = await renderRules({
+      repoPath: path.join(fixturesRoot, "node_ts_min"),
+      pack: "default",
+      targets: { codex: false, copilot: true, claude: true },
+      policy: {
+        strictness: "strict",
+        standards: "auto",
+        copilotProfile: "short",
+        claudeProfile: "short"
+      }
+    });
+
+    const claude = files.find((f) => f.path === "CLAUDE.md");
+    const copilot = files.find((f) => f.path === ".github/copilot-instructions.md");
+
+    expect(claude?.content).toContain("profile: `short`");
+    expect(copilot?.content).toContain("profile: `short`");
+    expect(claude?.content).not.toContain("Detailed Conventions");
+    expect(copilot?.content).not.toContain("Detailed Conventions");
+  });
+});

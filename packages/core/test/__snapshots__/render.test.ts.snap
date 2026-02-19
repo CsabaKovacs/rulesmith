@@ -1,0 +1,11 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`renderer > renders all targets for laravel fixture 1`] = `
+[
+  ".github/copilot-instructions.md",
+  ".github/instructions/controllers.instructions.md",
+  ".github/instructions/routes.instructions.md",
+  "AGENTS.md",
+  "CLAUDE.md",
+]
+`;

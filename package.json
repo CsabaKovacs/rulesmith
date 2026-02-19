@@ -1,0 +1,16 @@
+{
+  "name": "rulesmith",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Local-first MCP + CLI for repository evidence mapping and agent instruction generation",
+  "packageManager": "pnpm@10.0.0",
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "pnpm -r test",
+    "lint": "pnpm -r lint"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.3",
+    "vitest": "^3.0.8"
+  }
+}

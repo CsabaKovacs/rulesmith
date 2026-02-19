@@ -1,0 +1,53 @@
+---
+applyTo: "{{area.applyTo}}"
+---
+
+# Area Instructions: {{area.name}}
+
+## Purpose
+- This file is an area-level override for `.github/copilot-instructions.md`.
+- Apply these rules in addition to global instructions, not instead of them.
+
+{{#if copilotStrict}}
+## Area Execution Contract
+- Area scope: `{{area.applyTo}}`
+- strictness: `{{policy.strictness}}`
+- standards: `{{policy.standards}}`
+- profile: `strict`
+- Keep edits inside this area aligned with existing local patterns.
+- Require evidence before introducing new assumptions or abstractions.
+
+## Area-Specific Commands
+- test: `{{#if buildCommands.test}}{{buildCommands.test}}{{else}}UNKNOWN{{/if}}`
+- lint: `{{#if buildCommands.lint}}{{buildCommands.lint}}{{else}}UNKNOWN{{/if}}`
+- format: `{{#if buildCommands.format}}{{buildCommands.format}}{{else}}UNKNOWN{{/if}}`
+
+## Area-Specific Conventions
+{{#each areaSections}}
+### {{title}}
+{{#each bullets}}
+- {{this}}
+{{/each}}
+{{/each}}
+
+## Guardrails (Area)
+{{#each profile.guardrails.forbiddenPaths}}
+- {{this}}
+{{/each}}
+{{else}}
+## Area Execution Contract
+- Area scope: `{{area.applyTo}}`
+- strictness: `{{policy.strictness}}`
+- standards: `{{policy.standards}}`
+- profile: `short`
+
+## Key Area Rules
+{{#each areaSections}}
+### {{title}}
+{{#each bullets}}
+{{#if @first}}
+- {{this}}
+{{/if}}
+{{/each}}
+{{/each}}
+{{/if}}

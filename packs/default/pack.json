@@ -1,0 +1,11 @@
+{
+  "name": "default",
+  "version": "0.1.0",
+  "description": "Default rulesmith instruction pack",
+  "templates": [
+    "agents.md.hbs",
+    "claude.md.hbs",
+    "copilot-instructions.md.hbs",
+    "copilot-area.instructions.md.hbs"
+  ]
+}
