@@ -1,9 +1,9 @@
 # rulesmith
 
-[![Build](https://img.shields.io/badge/build-pnpm%20-r%20build-blue?logo=pnpm)](#installation)
-[![Test](https://img.shields.io/badge/test-pnpm%20-r%20test-1f883d?logo=vitest)](#installation)
-[![npm (CLI)](https://img.shields.io/npm/v/rulesmith-cli?label=npm%20cli&logo=npm)](https://www.npmjs.com/package/rulesmith-cli)
-[![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
+[![Repo](https://img.shields.io/badge/repo-GitHub-black?logo=github)](https://github.com/CsabaKovacs/rulesmith)
+[![Build](https://img.shields.io/badge/build-pnpm__r_build-blue?logo=pnpm)](#installation)
+[![Test](https://img.shields.io/badge/test-pnpm__r_test-1f883d?logo=vitest)](#installation)
+[![License](https://img.shields.io/github/license/CsabaKovacs/rulesmith)](LICENSE)
 
 **Map messy codebases safely. Generate evidence-backed agent instructions. Stay local-first.**
 
@@ -14,18 +14,37 @@ It does three things really well:
 - guides a repeatable mapping workflow for hosts like Codex / Claude / Junie
 - generates (or helps you author) strict instruction files for future AI runs
 
-## 1-Minute Quickstart
+## Read this first: choose mode
+
+- **MCP + host AI mode (recommended):** run `rulesmith` as MCP inside Codex/Claude/Junie. The host AI reads evidence and writes project-specific rule files with reasoning.
+- **CLI template mode (secondary/fallback):** run `rulesmith` from terminal (`start`/`render`/`apply`). This mode does **not** call any AI model; it renders deterministic output from scanner + templates.
+
+If your goal is stricter, project-specific, high-quality rules, start with MCP + host AI.
+
+## 1-Minute Quickstart (MCP-first, recommended)
 
 ![rulesmith quickstart GIF](https://dummyimage.com/1200x630/0f172a/e2e8f0.gif&text=rulesmith+1-minute+quickstart)
 
 ```bash
-git clone <YOUR_REPO_URL> rulesmith
+git clone git@github.com:CsabaKovacs/rulesmith.git rulesmith
 cd rulesmith
 pnpm install && pnpm -r build
-node packages/cli/dist/index.js start /absolute/path/to/target-repo
+
+# Register rulesmith MCP in Codex
+codex mcp add rulesmith --env RULESMITH_HOME="$PWD" -- node "$PWD/packages/mcp/dist/server.js"
+
+# Open your target project with Codex
+codex -C /absolute/path/to/target-repo
 ```
 
 If you want this block to show a real terminal demo, replace the image with your recorded GIF file (recommended path: `docs/assets/rulesmith-quickstart.gif`).
+
+Then ask Codex/Claude/Junie to run this sequence:
+- `scan_repo`
+- `build_evidence_bundle` (usually `includeContent=false`)
+- expand with `list_files` / `search` / `read_files`
+- generate and review diffs
+- apply when valid
 
 ## Why this is useful
 
@@ -76,105 +95,11 @@ Optional host clients:
 ## Installation
 
 ```bash
-git clone <YOUR_REPO_URL> rulesmith
+git clone git@github.com:CsabaKovacs/rulesmith.git rulesmith
 cd rulesmith
 pnpm install
 pnpm -r build
 pnpm -r test
-```
-
-## CLI usage
-
-After build, run directly:
-
-```bash
-node packages/cli/dist/index.js --help
-```
-
-### One-command interactive flow
-
-```bash
-node packages/cli/dist/index.js start /absolute/path/to/target-repo
-```
-
-Alias:
-
-```bash
-node packages/cli/dist/index.js /start /absolute/path/to/target-repo
-```
-
-`start` can run fully interactive (strictness, standards mode, targets, apply mode).
-
-### Common commands
-
-Scan:
-
-```bash
-node packages/cli/dist/index.js scan /absolute/path/to/target-repo
-```
-
-Sample paths:
-
-```bash
-node packages/cli/dist/index.js sample /absolute/path/to/target-repo \
-  --strategy by-extension \
-  --maxFiles 80
-```
-
-Build evidence bundle:
-
-```bash
-node packages/cli/dist/index.js bundle /absolute/path/to/target-repo \
-  --focus generic \
-  --maxFiles 200 \
-  --out .rulesmith/bundle.json
-```
-
-Render files:
-
-```bash
-node packages/cli/dist/index.js render /absolute/path/to/target-repo \
-  --pack default \
-  --targets codex,copilot,claude \
-  --outdir .rulesmith/out
-```
-
-Diff:
-
-```bash
-node packages/cli/dist/index.js diff /absolute/path/to/target-repo \
-  --pack default \
-  --targets codex,copilot,claude
-```
-
-Apply:
-
-```bash
-node packages/cli/dist/index.js apply /absolute/path/to/target-repo \
-  --pack default \
-  --targets codex,copilot,claude \
-  --mode safe
-```
-
-Doctor:
-
-```bash
-node packages/cli/dist/index.js doctor /absolute/path/to/target-repo
-```
-
-### Bundle size behavior (important)
-
-By default, bundle mode is **paths-only**:
-- bundle stores file paths, not file content
-- keeps context footprint small for large projects
-
-If you explicitly want file content in bundle:
-
-```bash
-node packages/cli/dist/index.js bundle /absolute/path/to/target-repo \
-  --focus generic \
-  --maxFiles 100 \
-  --include-content
 ```
 
 ## MCP server
@@ -361,6 +286,103 @@ In Junie:
 - open MCP settings (or use `/mcp` in Junie CLI)
 - confirm server status is Active
 - start chat in target repo and call rulesmith tools
+
+## CLI usage (secondary fallback mode, no host AI)
+
+This mode is deterministic and **does not use an AI model**.
+
+After build, run directly:
+
+```bash
+node packages/cli/dist/index.js --help
+```
+
+### One-command interactive flow
+
+```bash
+node packages/cli/dist/index.js start /absolute/path/to/target-repo
+```
+
+Alias:
+
+```bash
+node packages/cli/dist/index.js /start /absolute/path/to/target-repo
+```
+
+`start` can run fully interactive (strictness, standards mode, targets, apply mode).
+
+### Common commands
+
+Scan:
+
+```bash
+node packages/cli/dist/index.js scan /absolute/path/to/target-repo
+```
+
+Sample paths:
+
+```bash
+node packages/cli/dist/index.js sample /absolute/path/to/target-repo \
+  --strategy by-extension \
+  --maxFiles 80
+```
+
+Build evidence bundle:
+
+```bash
+node packages/cli/dist/index.js bundle /absolute/path/to/target-repo \
+  --focus generic \
+  --maxFiles 200 \
+  --out .rulesmith/bundle.json
+```
+
+Render files:
+
+```bash
+node packages/cli/dist/index.js render /absolute/path/to/target-repo \
+  --pack default \
+  --targets codex,copilot,claude \
+  --outdir .rulesmith/out
+```
+
+Diff:
+
+```bash
+node packages/cli/dist/index.js diff /absolute/path/to/target-repo \
+  --pack default \
+  --targets codex,copilot,claude
+```
+
+Apply:
+
+```bash
+node packages/cli/dist/index.js apply /absolute/path/to/target-repo \
+  --pack default \
+  --targets codex,copilot,claude \
+  --mode safe
+```
+
+Doctor:
+
+```bash
+node packages/cli/dist/index.js doctor /absolute/path/to/target-repo
+```
+
+### Bundle size behavior (important)
+
+By default, bundle mode is **paths-only**:
+- bundle stores file paths, not file content
+- keeps context footprint small for large projects
+
+If you explicitly want file content in bundle:
+
+```bash
+node packages/cli/dist/index.js bundle /absolute/path/to/target-repo \
+  --focus generic \
+  --maxFiles 100 \
+  --include-content
+```
+
 
 ## Security model
 
