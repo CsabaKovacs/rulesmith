@@ -9,6 +9,8 @@
 
 `rulesmith` is an open-source **CLI + MCP server** for teams that want high-quality AI coding behavior on real-world repositories.
 
+Licensed under **Apache-2.0**. Contributions require a signed **CLA** before merge.
+
 It does three things really well:
 - collects deterministic repository evidence (without hallucinating)
 - guides a repeatable mapping workflow for hosts like Codex / Claude / Junie
@@ -65,6 +67,13 @@ Result: better instructions, fewer regressions, less prompt babysitting.
 - **Deterministic evidence**: scanner outputs confidence and concrete file paths.
 - **Safe writes**: output is restricted to approved instruction paths.
 - **MCP-native**: works as a stdio MCP server with host tools.
+
+## Project policies
+
+- Contributing process: `CONTRIBUTING.md`
+- Contributor license agreement template: `CLA.md`
+- Project governance: `GOVERNANCE.md`
+- Trademark policy: `TRADEMARKS.md`
 
 ## What can be generated
 
