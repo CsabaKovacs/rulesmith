@@ -131,7 +131,10 @@ function buildAiAuthorPrompt(args: {
     "Output requirements:",
     "- No generic boilerplate wording if repository evidence does not support it.",
     "- Preserve existing architecture and naming patterns unless explicitly asked to refactor.",
-    "- Include actionable implementation rules for future contributors."
+    "- Include actionable implementation rules for future contributors.",
+    "- If the codebase is NOT a mixed/salad legacy system by evidence, include language-standard and best-practice sections in generated rule files (for detected languages/frameworks).",
+    "- Examples of expected language standards when applicable: PHP/Laravel (PSR-12, Pint/PHPCS + framework conventions), JS/TS (ESLint, Prettier, strict TS where used), Python (Black/Ruff), Go (gofmt/goimports), Dart/Flutter (dart format + flutter analyze).",
+    "- If the codebase IS mixed/salad legacy, prefer incremental stabilization and project-local conventions over forcing broad external standards."
   ].join("\n");
 }
 

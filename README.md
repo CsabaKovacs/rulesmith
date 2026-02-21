@@ -217,6 +217,10 @@ With default MCP behavior, after `build_evidence_bundle`, the target repo's:
 
 are automatically removed.
 
+AI-authored flow note:
+- In generated compose prompts, `rulesmith` now explicitly instructs the host AI to include language standards and best practices (for example PSR-12 for PHP) when the repository is not a mixed/salad legacy codebase.
+- For mixed/salad repositories, it instructs incremental stabilization with project-local conventions first.
+
 If you want to keep artifacts:
 
 ```json
