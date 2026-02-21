@@ -134,6 +134,15 @@ function buildAiAuthorPrompt(args: {
     "- Include actionable implementation rules for future contributors.",
     "- If the codebase is NOT a mixed/salad legacy system by evidence, include language-standard and best-practice sections in generated rule files (for detected languages/frameworks).",
     "- Examples of expected language standards when applicable: PHP/Laravel (PSR-12, Pint/PHPCS + framework conventions), JS/TS (ESLint, Prettier, strict TS where used), Python (Black/Ruff), Go (gofmt/goimports), Dart/Flutter (dart format + flutter analyze).",
+    "- Include language-appropriate documentation standards (PHPDoc, TSDoc/JSDoc, docstrings, Go exported comments, etc.) for public interfaces and non-obvious logic.",
+    "- Enforce DRY while avoiding premature abstraction: remove duplication when repetition is proven, do not introduce speculative generic layers.",
+    "- Enforce file-size and cohesion discipline: avoid mega files/classes; keep responsibilities bounded and code human-readable.",
+    "- Include explicit DO/DON'T quality gates so generated rule files are enforceable, not just descriptive.",
+    "- Include dedicated testing, security, and performance checklists.",
+    "- Include dependency-change policy (rationale + compatibility impact) and breaking-change policy (migration + rollback notes).",
+    "- Include API/CLI contract safety rules that preserve response/exit/status semantics by default.",
+    "- Include a Definition-of-Done section that requires tests, documentation updates, and explicit UNKNOWN/TODO handling.",
+    "- Add a dedicated 'Documentation Maintenance' section in generated rule files that requires automatic updates to both developer docs and user-facing docs whenever behavior/contracts change.",
     "- If the codebase IS mixed/salad legacy, prefer incremental stabilization and project-local conventions over forcing broad external standards."
   ].join("\n");
 }

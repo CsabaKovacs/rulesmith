@@ -220,6 +220,8 @@ are automatically removed.
 AI-authored flow note:
 - In generated compose prompts, `rulesmith` now explicitly instructs the host AI to include language standards and best practices (for example PSR-12 for PHP) when the repository is not a mixed/salad legacy codebase.
 - For mixed/salad repositories, it instructs incremental stabilization with project-local conventions first.
+- Compose prompts also enforce DRY/no-premature-abstraction, file cohesion (avoid mega files), language-specific API documentation standards (PHPDoc/JSDoc/docstrings/etc.), and a dedicated documentation-maintenance section for developer + user docs.
+- Compose prompts and generated rulebooks now also include enforceable DO/DON'T gates, testing/security/performance checklists, dependency & breaking-change policies, API/CLI contract safety rules, and a Definition of Done section.
 
 If you want to keep artifacts:
 

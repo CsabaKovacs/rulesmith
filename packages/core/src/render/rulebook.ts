@@ -93,6 +93,31 @@ function standardForLanguage(language: string, hasLaravel: boolean): string | un
   }
 }
 
+function documentationStandardForLanguage(language: string): string | undefined {
+  switch (language) {
+    case "php":
+      return "PHP documentation: require PHPDoc for public methods, complex business logic, and non-obvious data contracts.";
+    case "typescript":
+    case "javascript":
+      return "JS/TS documentation: require TSDoc/JSDoc for exported APIs, shared utilities, and complex domain logic.";
+    case "python":
+      return "Python documentation: require docstrings for public modules/classes/functions and non-obvious workflow decisions.";
+    case "go":
+      return "Go documentation: require Go-style comments for exported types/functions and package-level behavior.";
+    case "dart":
+      return "Dart/Flutter documentation: require doc comments for public widgets/services and non-trivial state flows.";
+    case "java":
+    case "kotlin":
+      return "JVM documentation: require Javadoc/KDoc for public APIs and cross-module contracts.";
+    case "csharp":
+      return "C# documentation: require XML docs for public types/members and externally consumed contracts.";
+    case "ruby":
+      return "Ruby documentation: require YARD-style docs (or project equivalent) for public interfaces and domain services.";
+    default:
+      return undefined;
+  }
+}
+
 function buildPolicySection(args: {
   profile: ProjectProfile;
   policy: RulebookPolicy;
@@ -110,12 +135,21 @@ function buildPolicySection(args: {
       .map((language) => standardForLanguage(language.name, args.hasLaravel))
       .filter((line): line is string => Boolean(line))
   );
+  const languageDocStandards = dedupe(
+    args.profile.languages
+      .filter((language) => language.confidence >= 0.25)
+      .map((language) => documentationStandardForLanguage(language.name))
+      .filter((line): line is string => Boolean(line))
+  );
   const bullets = [
     strictnessDescription(args.policy.strictness),
     standardsLabel
   ];
   if (effectiveStandards === "project-plus-standard" && languageStandards.length > 0) {
     bullets.push(`Standard profiles applied: ${languageStandards.join(" ")}`);
+    if (languageDocStandards.length > 0) {
+      bullets.push(`Documentation standards applied: ${languageDocStandards.join(" ")}`);
+    }
   }
   if (args.policy.strictness === "very-strict") {
     bullets.push("Enforcement: require explicit evidence links for non-trivial rules; unresolved assumptions must remain UNKNOWN/TODO.");
@@ -280,6 +314,10 @@ async function buildLaravelRulebook(profile: ProjectProfile, policy: RulebookPol
   const langHuExists = await pathExists(repoRoot, "resources/lang/hu");
   const langEnExists = await pathExists(repoRoot, "resources/lang/en");
   const moduleLangDirs = await listFilesSafe({ repoRoot, glob: "Modules/**/Resources/lang/**", max: 1200 });
+  const docsEvidence = [
+    ...(await pathExists(repoRoot, "README.md") ? ["README.md"] : []),
+    ...(await pathExists(repoRoot, "docs") ? ["docs"] : [])
+  ];
 
   const scheduleDefined = Boolean(kernelText && /\$schedule\s*->/.test(kernelText));
 
@@ -527,10 +565,76 @@ async function buildLaravelRulebook(profile: ProjectProfile, policy: RulebookPol
     "Prefer module-local changes under Modules/<Module>/... when extending existing features.",
     "Keep route protection and permission middleware aligned with surrounding modules.",
     "Use FormRequest validation and DB::transaction for multi-entity writes.",
+    "Apply DRY: avoid duplicated business logic; extract shared code only when repetition is stable across real use-cases.",
+    "No premature abstraction: do not introduce generic layers before repeated patterns are proven by evidence.",
+    "Keep files/classes cohesive and reasonably small; avoid mega controllers/services and split by bounded responsibility.",
     "Preserve existing naming/style conventions in touched files; avoid broad reformatting-only changes.",
     "When assumptions are uncertain, mark UNKNOWN/TODO explicitly instead of inventing undocumented rules."
   ];
   sections.push({ title: "When Adding New Features", bullets: implementationBullets });
+  sections.push({
+    title: "Documentation Maintenance",
+    bullets: [
+      withEvidence(
+        "When behavior or contracts change, update developer documentation and user-facing documentation in the same change set.",
+        docsEvidence
+      ),
+      "Require language-appropriate API documentation for new/changed public interfaces (e.g., PHPDoc, TSDoc/JSDoc, docstrings, Go doc comments).",
+      "Document migration/rollout notes and backward-compatibility impact when changing routes, data contracts, or auth/permission behavior."
+    ]
+  });
+  sections.push({
+    title: "Strict Quality Gates (DO / DON'T)",
+    bullets: [
+      "DO keep all major claims and architectural decisions evidence-backed with concrete files.",
+      "DO keep modifications scoped and behavior-safe with reviewable incremental diffs.",
+      "DO extract shared logic only when repetition is proven across real use-cases (DRY with evidence).",
+      "DON'T introduce speculative abstractions or framework-wide rewrites without explicit scope.",
+      "DON'T create mega files/classes; split by cohesive responsibilities while keeping call paths understandable.",
+      "DON'T perform style-only mass rewrites in the same change as functional updates."
+    ]
+  });
+  sections.push({
+    title: "Testing Minimum Bar",
+    bullets: [
+      withEvidence(
+        "Every non-trivial change must include or update at least one relevant test at the nearest existing level (unit/feature/integration).",
+        phpunitText ? ["phpunit.xml"] : []
+      ),
+      "Route/auth/permission changes require regression checks for guards, middleware, and expected status codes.",
+      "Data-model or migration changes require tests for both success path and failure/rollback behavior.",
+      "Refactor-only changes still require smoke verification of touched flows before merge."
+    ]
+  });
+  sections.push({
+    title: "Security and Performance Checklist",
+    bullets: [
+      "Security: validate/normalize all external input and keep authorization checks explicit in route/controller boundaries.",
+      "Security: avoid secret leakage in code/docs/logs; use existing config/env patterns for sensitive values.",
+      "Performance: avoid N+1/data over-fetch patterns and preserve or improve current caching behavior.",
+      "Performance: keep payloads and query scope minimal; document any intentionally expensive operation."
+    ]
+  });
+  sections.push({
+    title: "Dependency and Change Safety Policy",
+    bullets: [
+      withEvidence(
+        "Adding or changing dependencies must include rationale, compatibility impact, and lockfile/tooling implications.",
+        ["composer.json", "package.json"]
+      ),
+      "Breaking changes (renames/removals of routes/contracts/core classes) require explicit migration plan and rollout notes.",
+      "API contract changes must preserve compatibility by default (response shape/status codes) unless explicitly approved."
+    ]
+  });
+  sections.push({
+    title: "Definition of Done",
+    bullets: [
+      "Implementation follows local architecture and language/framework standards.",
+      "Tests and verification steps are updated for touched behavior.",
+      "Developer documentation and user-facing documentation are updated where behavior changed.",
+      "UNKNOWN/TODO items are explicit, actionable, and minimized."
+    ]
+  });
 
   return {
     title: "Project Conventions (Evidence-Backed)",
@@ -601,6 +705,10 @@ export async function buildRulebook(profile: ProjectProfile, policy?: Partial<Ru
   const toolingConfigs = (
     await Promise.all(toolingConfigCandidates.map(async (candidate) => ((await pathExists(repoRoot, candidate)) ? candidate : undefined)))
   ).filter((item): item is string => Boolean(item));
+  const docsEvidence = [
+    ...(await pathExists(repoRoot, "README.md") ? ["README.md"] : []),
+    ...(await pathExists(repoRoot, "docs") ? ["docs"] : [])
+  ];
 
   const sampleForMetrics = sourceFiles
     .filter((file) => /\.(ts|tsx|js|jsx|php|py|rb|go|rs|java|kt|cs|dart|swift|scala|ex|exs|sh|sql|vue)$/.test(file))
@@ -815,9 +923,71 @@ export async function buildRulebook(profile: ProjectProfile, policy?: Partial<Ru
     bullets: [
       "Match local naming/layout conventions in the files you touch; do not introduce a second style within one module/package.",
       "Keep diffs scoped to the smallest boundary that can satisfy the change request.",
+      "Apply DRY: avoid copy-pasted business logic and converge repeated patterns through focused, evidence-backed abstractions.",
+      "No premature abstraction: only extract shared frameworks/utilities when repetition is real and stable.",
+      "Prefer cohesive, smaller files/modules over mega files; split by responsibility while avoiding over-fragmentation.",
       "When command/tooling confidence is low, run discovery first and write UNKNOWN/TODO explicitly in generated guidance.",
       "Preserve compatibility with existing CI/tooling before adopting new build systems or framework patterns.",
       "Every non-trivial change proposal should point to concrete evidence files in this repository."
+    ]
+  });
+  sections.push({
+    title: "Documentation Maintenance",
+    bullets: [
+      withEvidence(
+        "When behavior or public contracts change, update both developer docs and user-facing docs in the same delivery.",
+        docsEvidence
+      ),
+      "Require language-appropriate API documentation for changed public interfaces (for example PHPDoc, JSDoc/TSDoc, Python docstrings, Go exported comments).",
+      "Keep onboarding/usage docs aligned with actual commands, config, and integration flow after each meaningful change."
+    ]
+  });
+  sections.push({
+    title: "Strict Quality Gates (DO / DON'T)",
+    bullets: [
+      "DO keep claims and conventions tied to explicit evidence files.",
+      "DO keep changes scoped, reviewable, and behavior-safe.",
+      "DO apply DRY only when repeated logic is proven by multiple concrete call sites.",
+      "DON'T introduce speculative abstractions before stable repetition exists.",
+      "DON'T grow monolithic files/classes; keep responsibilities cohesive and human-readable.",
+      "DON'T mix functional changes with large style-only rewrites."
+    ]
+  });
+  sections.push({
+    title: "Testing Minimum Bar",
+    bullets: [
+      withEvidence(
+        "Every meaningful behavior change must include/update at least one fitting test or explicit manual verification note.",
+        testFiles.slice(0, 3)
+      ),
+      "Contract changes (API/CLI/config) require backward-compatibility checks and explicit expected output verification.",
+      "Refactors require smoke checks that prove unchanged runtime behavior on touched paths."
+    ]
+  });
+  sections.push({
+    title: "Security and Performance Checklist",
+    bullets: [
+      "Security: validate inputs at boundaries, preserve explicit authorization checks, and avoid secret exposure.",
+      "Security: prefer existing safe file/process/network patterns over ad-hoc shortcuts.",
+      "Performance: avoid N+1, oversized payloads, and expensive broad scans when targeted reads are possible.",
+      "Performance: preserve existing caching and incremental processing behavior unless optimization scope is explicit."
+    ]
+  });
+  sections.push({
+    title: "Dependency and Change Safety Policy",
+    bullets: [
+      withEvidence("Dependency changes must include rationale and compatibility/tooling impact.", manifestEvidence),
+      "Breaking contract changes require explicit migration path and rollback notes.",
+      "API/CLI response shape and status/exit semantics must remain stable unless change is explicitly approved."
+    ]
+  });
+  sections.push({
+    title: "Definition of Done",
+    bullets: [
+      "Code aligns with detected standards and local conventions.",
+      "Tests/verification are updated and documented for touched behavior.",
+      "Developer and user-facing docs are updated when behavior/contracts changed.",
+      "Outstanding UNKNOWN/TODO items are explicit and actionable."
     ]
   });
 
