@@ -25,24 +25,67 @@ If your goal is stricter, project-specific, high-quality rules, start with MCP +
 
 ## 1-Minute Quickstart (MCP-first, recommended)
 
-If you are not technical, you can copy this prompt into your AI coding chat and it will guide or execute setup for you. Replace the path placeholder first.
+If you are not technical, copy this hard-mode prompt into your AI coding chat. Replace the target path placeholder first.
 
 ```text
-Please install and run rulesmith for me step by step.
+Execute this task end-to-end, not as advice.
 
-Repository:
+Repository to install:
 https://github.com/CsabaKovacs/rulesmith
 
-Target project path:
+Target repository:
 <ABSOLUTE_PATH_TO_TARGET_REPO>
 
-What I need:
-1) Clone and install rulesmith on my machine.
-2) Build it.
-3) Register it as an MCP server in this chat environment.
-4) Run a full repository scan on my target project.
-5) Generate and apply rule files in safe mode.
-6) At the end, show a short summary of what was installed, configured, and generated.
+Strict execution requirements:
+- Actually run commands and MCP tools. Do not only describe steps.
+- If a command fails, fix it and continue.
+- Use absolute paths everywhere.
+- Do not stop until scan + generation + apply are complete.
+- Use rulesmith MCP tools for repository analysis and rule generation workflow.
+
+What to do:
+
+1) Install rulesmith
+- Clone the repo to a local absolute path.
+- Run:
+  - pnpm install
+  - pnpm -r build
+  - pnpm -r test
+
+2) Register MCP server in this environment
+- Set RULESMITH_HOME to the cloned rulesmith path.
+- Register rulesmith MCP server using:
+  node "$RULESMITH_HOME/packages/mcp/dist/server.js"
+- Verify MCP registration is active before continuing.
+
+3) Run full analysis on target repo using MCP
+- scan_repo
+- build_evidence_bundle with:
+  focus="generic", maxFiles=2000, includeContent=false
+- Expand evidence with list_files/search/read_files for key areas before finalizing rules.
+
+4) Generate and apply rule files
+- render_rules with targets:
+  { codex: true, copilot: true, claude: true, junie: true }
+- diff_rules and show the diff summary.
+- If diff is valid, apply_rules with mode="safe".
+
+5) Validate outputs in target repo
+Confirm these exist (if target supports them):
+- AGENTS.md
+- CLAUDE.md
+- .github/copilot-instructions.md
+- .github/instructions/*.instructions.md (optional)
+- .junie/guidelines.md
+
+6) Final report (required)
+Return a concise report with:
+- Installed path of rulesmith
+- MCP registration status
+- Commands executed
+- MCP tools executed
+- Files generated/written
+- Any warnings or skipped steps
 ```
 
 If you prefer manual terminal commands, use this block:

@@ -1,85 +1,138 @@
-# Project Conventions (Evidence-Backed)
+# rulesmith Repository Conventions (AI-Reviewed)
+
+This file captures enforceable conventions for this repository based on direct file evidence.
 
 ## Project Snapshot
-- Detected frameworks: node (0.17). (evidence: package.json)
-- Detected languages: typescript (1), javascript (0.61), dart (0.15), php (0.15), go (0.15), python (0.15). (evidence: package.json, examples/fixtures/vue_min/vite.config.ts, packages/cli/src/index.ts, packages/cli/dist/index.d.ts, packages/core/src/index.ts, packages/core/dist/index.d.ts)
-- Build command coverage: install=yes, build=yes, test=yes, lint=yes, format=no. (evidence: package.json#scripts)
-- Monorepo signal detected (packages/*). (evidence: packages/*)
-- Repository size estimate: 5120 files scanned.
+- Repository type: pnpm monorepo (`packages/*`).
+- Primary implementation stack: TypeScript + Node.js ESM in `packages/core`, `packages/cli`, `packages/mcp`.
+- Additional languages (PHP/Dart/Python/Go) are present mainly in `examples/fixtures/*` for scanner test coverage; do not treat them as core runtime stack conventions.
+- Build/test/lint commands are workspace-level scripts from root `package.json`.
 
-## Setup Commands (with evidence)
+Evidence:
+- `pnpm-workspace.yaml`
+- `package.json`
+- `packages/core/package.json`
+- `packages/cli/package.json`
+- `packages/mcp/package.json`
+- `examples/fixtures/*`
+
+## Setup Commands
 - install: `pnpm install`
 - build: `pnpm -r build`
 - test: `pnpm -r test`
 - lint: `pnpm -r lint`
-- format: `UNKNOWN`
-- dev: `UNKNOWN`
+- format: `UNKNOWN` (no root format script)
+- dev: `UNKNOWN` (no root dev script)
 
 Evidence:
-- package.json#scripts
+- `package.json`
 
-## Detailed Conventions
-### Rule System Mode
-- Very-strict: require explicit evidence for every architectural claim, block style drift, and treat unknowns as stop points until clarified.
-- Project+standard mode: combine repository conventions with language-standard style baselines.
-- Standard profiles applied: TypeScript standards: strict TS config, ESLint, and Prettier. JavaScript standards: ESLint + Prettier with explicit module boundaries and side-effect discipline.
-- Enforcement: require explicit evidence links for non-trivial rules; unresolved assumptions must remain UNKNOWN/TODO.
-### Repository Layout
-- Top directories by source-file volume: packages (47), examples (20), [root] (8), packs (8). (evidence: packages, examples, [root], packs)
-- Entrypoints detected: none detected.
-- Manifest/config files detected: package.json, pnpm-workspace.yaml. (evidence: package.json, pnpm-workspace.yaml)
-### Build, Test, and Tooling
-- Install command: pnpm install. (evidence: package.json#scripts)
-- Build command: pnpm -r build. (evidence: package.json#scripts)
-- Test command: pnpm -r test. (evidence: package.json#scripts)
-- Lint command: pnpm -r lint. (evidence: package.json#scripts)
-- Format command: UNKNOWN. (evidence: package.json#scripts)
-- Quality tooling configs detected: none detected.
-### Language and Framework Practices
-- TypeScript is present; keep strict typing, avoid implicit any, and prefer typed module boundaries. (evidence: package.json, examples/fixtures/vue_min/vite.config.ts, packages/cli/src/index.ts, packages/cli/dist/index.d.ts, packages/core/src/index.ts, packages/core/dist/index.d.ts)
-- JavaScript is present; keep module boundaries explicit and avoid hidden side effects in shared utilities. (evidence: package.json, examples/fixtures/node_ts_min/eslint.config.js, packages/cli/dist/index.js, packages/core/dist/index.js, packages/mcp/dist/server.js, examples/fixtures/salad_min/api/server.js)
-- Dart is present; keep widget/app layer boundaries explicit and avoid coupling UI code to transport/storage details. (evidence: examples/fixtures/flutter_min/lib/main.dart)
-- PHP is present; preserve existing framework conventions and avoid mixing framework and scripting styles in the same layer. (evidence: examples/fixtures/laravel_messy_min/routes/web.php, examples/fixtures/laravel_messy_min/app/Http/Controllers/HomeController.php)
-- Go is present; keep package layout predictable (cmd/internal/pkg style) and preserve explicit error handling. (evidence: examples/fixtures/salad_min/scripts/job.go)
-- Python is present; keep package/module boundaries explicit and prefer small, testable functions over script-style global flows. (evidence: examples/fixtures/salad_min/legacy/main.py)
-- node detected; follow existing framework conventions and keep new code consistent with current architecture. (evidence: package.json)
-### Code Health Signals
-- Sampled code files for structural metrics: 48.
-- Files with import/use-style module wiring: 38.
-- Files containing class declarations: 3.
-- Files containing function/procedure declarations: 29.
-- Test files detected: 5.
-- Documentation files detected: 2.
-- TODO/FIXME markers observed in sampled files: 30.
-- Potentially large files (>500 lines) found: 5. (evidence: packages/cli/src/index.ts, packages/core/dist/render/rulebook.js, packages/core/dist/scanner/index.js, packages/core/src/render/rulebook.ts, packages/core/src/scanner/index.ts)
-### Messy/Legacy Code Stabilization
-- No single dominant framework signal found or the repository is strongly polyglot; treat it as a mixed/legacy codebase and enforce incremental standardization. (evidence: package.json)
-- Before broad refactors, codify target boundaries per top-level directory and migrate one boundary at a time.
-- Require evidence-backed architecture decisions: every new pattern should cite existing files that justify it.
-- Introduce tests around touched flows first, then refactor internals behind those tests.
-- Avoid large style-only rewrites; prioritize behavior-safe, scoped cleanups with explicit rollback points.
-### Execution Guardrails
-- Forbidden paths: .git, node_modules. (evidence: .git, node_modules)
-- Do not edit generated or dependency directories.
-- Prefer scoped edits and evidence-backed claims in generated instructions.
-### Implementation Playbook
-- Match local naming/layout conventions in the files you touch; do not introduce a second style within one module/package.
-- Keep diffs scoped to the smallest boundary that can satisfy the change request.
-- When command/tooling confidence is low, run discovery first and write UNKNOWN/TODO explicitly in generated guidance.
-- Preserve compatibility with existing CI/tooling before adopting new build systems or framework patterns.
-- Every non-trivial change proposal should point to concrete evidence files in this repository.
+## Repository Layout
+- `packages/core/src`: source of truth for profile/schema, scanner/sampling, safe FS, packs/decision tree, renderer.
+- `packages/cli/src`: `rulesmith` CLI commands (`start`, `scan`, `sample`, `bundle`, `compose`, `render`, `diff`, `apply`, `doctor`).
+- `packages/mcp/src/server.ts`: MCP stdio server tool registration and prompt/resource exposure.
+- `packs/default`: templates, orchestrator prompts, decision tree.
+- `examples/fixtures`: synthetic repos used for scanner/render testing.
+- `docs/integrations`: host setup docs.
 
-## Detected Frameworks
-- node (confidence: 0.17) evidence: package.json
+## Source vs Dist Policy
+- Edit `src` files, not `dist`, unless there is a deliberate packaging exception.
+- Any source change that affects emitted JS/types requires rebuilding so `dist` stays in sync before release.
+- Keep TypeScript `rootDir=src` and output `outDir=dist` conventions per package.
 
-## Guardrails
-Forbidden paths:
-- .git
-- node_modules
+Evidence:
+- `packages/core/tsconfig.json`
+- `packages/cli/tsconfig.json`
+- `packages/mcp/tsconfig.json`
 
-Notes:
-- Do not edit generated or dependency directories.
-- Prefer scoped edits and evidence-backed claims in generated instructions.
+## Core Behavioral Rules
+- `rulesmith` itself must not call an embedded LLM/model; it is an evidence + rendering tool.
+- MCP server logs must go to stderr; do not print operational logs to stdout.
+- Preserve deterministic evidence behavior in scanner and bundle flow.
+- Keep `build_evidence_bundle` defaults paths-only (`includeContent=false`) and cleanup behavior explicit.
+
+Evidence:
+- `README.md`
+- `packages/mcp/src/server.ts`
+- `packages/core/src/scanner/sampling.ts`
+
+## Safe FS and Write Guardrails
+- Repository boundary protections (no traversal, no absolute escape, no symlink escape) are mandatory.
+- Allowed generated write targets are restricted to:
+  - `AGENTS.md`
+  - `CLAUDE.md`
+  - `.junie/guidelines.md`
+  - `.github/copilot-instructions.md`
+  - `.github/instructions/*.instructions.md`
+- Safe mode must not overwrite changed existing content.
+
+Evidence:
+- `packages/core/src/fs/safe.ts`
+- `packages/core/test/fs.safe.test.ts`
+
+## MCP Tool Contract
+- Maintain tool surface compatibility unless a breaking change is intentional and documented.
+- Current tool set includes scan/list/search/read/sample/bundle/render/diff/apply and pack helpers.
+- Optional fields in tool schemas should remain backward compatible where possible.
+
+Evidence:
+- `packages/mcp/src/server.ts`
+- `README.md`
+
+## Rendering and Targets
+- Supported targets currently: `codex`, `copilot`, `claude`, `junie`.
+- Preserve target-specific outputs and path contracts.
+- If changing templates or target behavior, update tests/snapshots accordingly.
+
+Evidence:
+- `packages/core/src/render/index.ts`
+- `packs/default/pack.json`
+- `packages/core/test/render.test.ts`
+- `packages/core/test/__snapshots__/render.test.ts.snap`
+
+## Testing and Quality Bar
+- Minimum required checks before merge:
+  - `pnpm -r test`
+  - `pnpm -r build`
+  - `pnpm -r lint`
+- For behavioral changes in `core`/`render`/`fs`/`scanner`, add or update vitest coverage in `packages/core/test`.
+- CLI and MCP currently use `--passWithNoTests`; if adding tests there, enforce them consistently.
+
+Evidence:
+- `package.json`
+- `packages/core/package.json`
+- `packages/cli/package.json`
+- `packages/mcp/package.json`
+
+## Documentation and Policy Maintenance
+- Update docs in the same change when behavior, flags, outputs, or integrations change.
+- Keep these policy docs coherent: `README.md`, `SECURITY.md`, `CONTRIBUTING.md`, `CLA.md`, `GOVERNANCE.md`, `TRADEMARKS.md`.
+- Keep integration docs aligned with actual CLI flags and MCP behavior.
+
+Evidence:
+- `README.md`
+- `SECURITY.md`
+- `docs/integrations/*`
+
+## Security and Data Exposure Rules
+- Never weaken safe path enforcement or allowlist boundaries without explicit security review.
+- Treat MCP-host data flow as sensitive: avoid exposing secrets or proprietary code unintentionally.
+- Keep disclaimers and security policy language aligned with actual risk model.
+
+Evidence:
+- `packages/core/src/fs/safe.ts`
+- `SECURITY.md`
+- `README.md`
+- `docs/integrations/README.md`
+
+## Implementation Do/Don't
+- DO keep changes scoped and evidence-backed.
+- DO prefer compatibility-preserving edits in MCP/CLI schemas.
+- DO update tests/snapshots/docs with behavior changes.
+- DON'T introduce speculative abstractions without repeated evidence.
+- DON'T rely on fixture repos as production architecture guidance.
+- DON'T bypass safe FS protections for convenience.
 
 ## UNKNOWN/TODO
-- Format command is not confidently detected.
+- Add an explicit root-level `format` command if formatting policy should be enforced uniformly.
+- Decide whether `packages/cli` and `packages/mcp` should move from `--passWithNoTests` to required tests.
