@@ -164,19 +164,27 @@ async function start() {
       targets: z.object({
         codex: z.boolean(),
         copilot: z.boolean(),
-        claude: z.boolean()
+        claude: z.boolean(),
+        junie: z.boolean().optional()
       }),
       policy: z
         .object({
           strictness: z.enum(["baseline", "strict", "very-strict"]).optional(),
           standards: z.enum(["auto", "project-only", "project-plus-standard"]).optional(),
           copilotProfile: z.enum(["short", "strict"]).optional(),
-          claudeProfile: z.enum(["short", "strict"]).optional()
+          claudeProfile: z.enum(["short", "strict"]).optional(),
+          junieProfile: z.enum(["short", "strict"]).optional()
         })
         .optional()
     },
     async ({ repoPath, pack, overrides, targets, policy }) =>
-      renderRules({ repoPath: path.resolve(repoPath ?? process.cwd()), pack, overrides, targets, policy })
+      renderRules({
+        repoPath: path.resolve(repoPath ?? process.cwd()),
+        pack,
+        overrides,
+        targets: { ...targets, junie: targets.junie ?? false },
+        policy
+      })
   );
 
   registerTool(

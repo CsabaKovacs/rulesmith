@@ -56,7 +56,7 @@ Then restart Claude Desktop.
 ```text
 Use rulesmith MCP as evidence provider only.
 Run scan_repo, build_evidence_bundle (includeContent=false), then deepen with list_files/search/read_files.
-Generate strict project-specific AGENTS.md and CLAUDE.md with evidence-backed claims.
+Generate strict project-specific AGENTS.md, CLAUDE.md, and .junie/guidelines.md with evidence-backed claims.
 Show diff before apply.
 ```
 

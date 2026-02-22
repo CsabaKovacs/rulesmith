@@ -80,6 +80,7 @@ Result: better instructions, fewer regressions, less prompt babysitting.
 For a target repository:
 - `AGENTS.md`
 - `CLAUDE.md`
+- `.junie/guidelines.md`
 - `.github/copilot-instructions.md`
 - optional `.github/instructions/*.instructions.md`
 
@@ -209,7 +210,7 @@ Use rulesmith MCP on this repository.
 1) scan_repo
 2) build_evidence_bundle with focus="generic", maxFiles=200, includeContent=false
 3) expand evidence with list_files/search/read_files
-4) generate AGENTS.md, CLAUDE.md, and Copilot instruction files
+4) generate AGENTS.md, CLAUDE.md, .junie/guidelines.md, and Copilot instruction files
 5) show diff first, then apply
 ```
 
@@ -350,7 +351,7 @@ Render files:
 ```bash
 node packages/cli/dist/index.js render /absolute/path/to/target-repo \
   --pack default \
-  --targets codex,copilot,claude \
+  --targets codex,copilot,claude,junie \
   --outdir .rulesmith/out
 ```
 
@@ -359,7 +360,7 @@ Diff:
 ```bash
 node packages/cli/dist/index.js diff /absolute/path/to/target-repo \
   --pack default \
-  --targets codex,copilot,claude
+  --targets codex,copilot,claude,junie
 ```
 
 Apply:
@@ -367,7 +368,7 @@ Apply:
 ```bash
 node packages/cli/dist/index.js apply /absolute/path/to/target-repo \
   --pack default \
-  --targets codex,copilot,claude \
+  --targets codex,copilot,claude,junie \
   --mode safe
 ```
 
@@ -400,6 +401,7 @@ Read operations are repo-root bounded and normalized.
 Write allowlist is strict:
 - `AGENTS.md`
 - `CLAUDE.md`
+- `.junie/guidelines.md`
 - `.github/copilot-instructions.md`
 - `.github/instructions/*.instructions.md`
 
@@ -426,7 +428,7 @@ Example:
 node packages/cli/dist/index.js render /absolute/path/to/target-repo \
   --pack default \
   --overrides /absolute/path/to/my-pack-overrides \
-  --targets codex,copilot,claude \
+  --targets codex,copilot,claude,junie \
   --outdir .rulesmith/out
 ```
 
@@ -461,7 +463,7 @@ node packages/cli/dist/index.js doctor /absolute/path/to/target-repo
 
 ```bash
 node packages/cli/dist/index.js scan examples/fixtures/laravel_messy_min
-node packages/cli/dist/index.js diff examples/fixtures/laravel_messy_min --pack default --targets codex,copilot,claude
+node packages/cli/dist/index.js diff examples/fixtures/laravel_messy_min --pack default --targets codex,copilot,claude,junie
 ```
 
 ## References

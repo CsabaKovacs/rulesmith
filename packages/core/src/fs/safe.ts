@@ -5,6 +5,7 @@ import fg from "fast-glob";
 export const WRITE_ALLOWLIST = [
   "AGENTS.md",
   "CLAUDE.md",
+  ".junie/guidelines.md",
   ".github/copilot-instructions.md",
   ".github/instructions"
 ] as const;
@@ -71,6 +72,9 @@ export async function assertPathInsideRepo(repoRoot: string, fullPath: string): 
 export function isAllowedWritePath(relativePath: string): boolean {
   const normalized = normalizeSlashes(path.posix.normalize(relativePath));
   if (normalized === "AGENTS.md" || normalized === "CLAUDE.md") {
+    return true;
+  }
+  if (normalized === ".junie/guidelines.md") {
     return true;
   }
   if (normalized === ".github/copilot-instructions.md") {

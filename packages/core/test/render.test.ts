@@ -9,11 +9,12 @@ describe("renderer", () => {
     const files = await renderRules({
       repoPath: path.join(fixturesRoot, "laravel_messy_min"),
       pack: "default",
-      targets: { codex: true, copilot: true, claude: true }
+      targets: { codex: true, copilot: true, claude: true, junie: true }
     });
 
     const agents = files.find((f) => f.path === "AGENTS.md");
     const claude = files.find((f) => f.path === "CLAUDE.md");
+    const junie = files.find((f) => f.path === ".junie/guidelines.md");
     const copilot = files.find((f) => f.path === ".github/copilot-instructions.md");
     const area = files.find((f) => f.path.startsWith(".github/instructions/"));
 
@@ -22,6 +23,8 @@ describe("renderer", () => {
     expect(agents?.content).toContain("Routing Conventions");
     expect(claude?.content).toContain("Execution Contract");
     expect(claude?.content).toContain("Detailed Conventions");
+    expect(junie?.content).toContain("Junie Guidelines");
+    expect(junie?.content).toContain("Detailed Conventions");
     expect(copilot?.content).toContain("GitHub Copilot Instructions");
     expect(copilot?.content).toContain("Detailed Conventions");
     expect(area?.content).toContain("applyTo");
@@ -34,7 +37,7 @@ describe("renderer", () => {
     const files = await renderRules({
       repoPath: path.join(fixturesRoot, "salad_min"),
       pack: "default",
-      targets: { codex: true, copilot: false, claude: false },
+      targets: { codex: true, copilot: false, claude: false, junie: false },
       policy: { strictness: "very-strict", standards: "project-plus-standard" }
     });
 
@@ -50,21 +53,25 @@ describe("renderer", () => {
     const files = await renderRules({
       repoPath: path.join(fixturesRoot, "node_ts_min"),
       pack: "default",
-      targets: { codex: false, copilot: true, claude: true },
+      targets: { codex: false, copilot: true, claude: true, junie: true },
       policy: {
         strictness: "strict",
         standards: "auto",
         copilotProfile: "short",
-        claudeProfile: "short"
+        claudeProfile: "short",
+        junieProfile: "short"
       }
     });
 
     const claude = files.find((f) => f.path === "CLAUDE.md");
+    const junie = files.find((f) => f.path === ".junie/guidelines.md");
     const copilot = files.find((f) => f.path === ".github/copilot-instructions.md");
 
     expect(claude?.content).toContain("profile: `short`");
     expect(copilot?.content).toContain("profile: `short`");
+    expect(junie?.content).toContain("profile: `short`");
     expect(claude?.content).not.toContain("Detailed Conventions");
     expect(copilot?.content).not.toContain("Detailed Conventions");
+    expect(junie?.content).not.toContain("Detailed Conventions");
   });
 });

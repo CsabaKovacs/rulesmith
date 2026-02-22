@@ -49,6 +49,7 @@ Prompt example:
 Use rulesmith MCP on this repository.
 Run scan_repo, build_evidence_bundle with includeContent=false, then use list_files/search/read_files to collect concrete evidence.
 Generate AGENTS.md, CLAUDE.md, and GitHub Copilot instruction files.
+Also generate .junie/guidelines.md for Junie-specific behavior.
 Show diff before apply.
 ```
 

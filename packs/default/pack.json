@@ -5,6 +5,7 @@
   "templates": [
     "agents.md.hbs",
     "claude.md.hbs",
+    "junie-guidelines.md.hbs",
     "copilot-instructions.md.hbs",
     "copilot-area.instructions.md.hbs"
   ]

@@ -11,6 +11,7 @@ export type RenderTargets = {
   codex: boolean;
   copilot: boolean;
   claude: boolean;
+  junie: boolean;
 };
 
 export type StrictnessLevel = "baseline" | "strict" | "very-strict";
@@ -22,6 +23,7 @@ export type RenderPolicy = {
   standards?: StandardsMode;
   copilotProfile?: OutputProfile;
   claudeProfile?: OutputProfile;
+  junieProfile?: OutputProfile;
 };
 
 export type GeneratedFile = {
@@ -96,7 +98,8 @@ function toTemplateContext(
     rulebook: options.rulebook,
     policy: options.policy,
     copilotStrict: options.policy.copilotProfile === "strict",
-    claudeStrict: options.policy.claudeProfile === "strict"
+    claudeStrict: options.policy.claudeProfile === "strict",
+    junieStrict: options.policy.junieProfile === "strict"
   };
 }
 
@@ -114,13 +117,15 @@ export async function renderRules(args: {
     strictness: args.policy?.strictness ?? "strict",
     standards: args.policy?.standards ?? "auto",
     copilotProfile: args.policy?.copilotProfile ?? "strict",
-    claudeProfile: args.policy?.claudeProfile ?? "strict"
+    claudeProfile: args.policy?.claudeProfile ?? "strict",
+    junieProfile: args.policy?.junieProfile ?? "strict"
   };
 
   const effectiveTargets: RenderTargets = {
     codex: args.targets.codex && decision.enabledTargets.has("codex"),
     copilot: args.targets.copilot && decision.enabledTargets.has("copilot"),
-    claude: args.targets.claude && decision.enabledTargets.has("claude")
+    claude: args.targets.claude && decision.enabledTargets.has("claude"),
+    junie: args.targets.junie && decision.enabledTargets.has("junie")
   };
 
   const unknowns: string[] = [];
@@ -176,6 +181,13 @@ export async function renderRules(args: {
         });
       }
     }
+  }
+
+  if (effectiveTargets.junie) {
+    files.push({
+      path: ".junie/guidelines.md",
+      content: renderTemplate(pickTemplate(pack.templates, "junie-guidelines.md.hbs"), context)
+    });
   }
 
   return files;
