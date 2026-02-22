@@ -51,10 +51,14 @@ This policy covers security issues in `rulesmith`, including (but not limited to
 - correctness of repository interpretation
 - correctness/safety of host AI outputs
 - secure behavior of third-party AI hosts or plugins (for example Codex, Claude, Copilot, Junie)
+- confidentiality guarantees for data sent to host AI providers through MCP-integrated workflows
 
 AI-assisted outputs (instructions, prompts, diffs, code suggestions) must be reviewed and validated by a qualified human before use in any environment.
 
 Do not rely on generated outputs for security-critical, safety-critical, legal, financial, or compliance-sensitive decisions without additional expert review.
+
+When you use MCP with a host AI, you are responsible for controlling what repository data is shared with that host/provider.
+Project maintainers and contributors do not accept liability for data/code exposure caused by host AI usage or configuration.
 
 ## Responsible Disclosure
 

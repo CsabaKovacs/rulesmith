@@ -43,7 +43,7 @@ Prompt template:
 Use rulesmith MCP only as evidence provider.
 Run:
 1) scan_repo
-2) build_evidence_bundle with focus="generic", maxFiles=200, includeContent=false
+2) build_evidence_bundle with focus="generic", maxFiles=2000, includeContent=false
 3) expand evidence with list_files/search/read_files
 4) generate/update AGENTS.md, CLAUDE.md, .junie/guidelines.md, and Copilot instruction files
 5) show diff first, then apply
