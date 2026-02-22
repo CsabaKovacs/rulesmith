@@ -68,10 +68,22 @@ Result: better instructions, fewer regressions, less prompt babysitting.
 - **Safe writes**: output is restricted to approved instruction paths.
 - **MCP-native**: works as a stdio MCP server with host tools.
 
+## Disclaimer
+
+- `rulesmith` is a repository evidence and workflow assistant for AI-assisted development. It is **not** a correctness, security, or compliance guarantee.
+- `rulesmith` works from repository signals (files, configs, scripts, and structure), which may be incomplete, outdated, inconsistent, or misleading.
+- As a result, generated instruction files, prompts, or workflow artifacts may not fully match your real project conventions.
+- Host AI systems (for example Codex, Claude, Copilot, or Junie) may produce incorrect, incomplete, insecure, or unsafe outputs even when using `rulesmith`.
+- You are solely responsible for reviewing, testing, and validating all generated rules, prompts, diffs, and code before applying them in development, staging, or production environments.
+- You should adapt generated outputs to your project’s actual architecture, constraints, coding standards, and risk tolerance.
+- Do not rely on generated outputs for security-critical, safety-critical, legal, financial, or compliance-sensitive decisions without qualified human review.
+- To the maximum extent permitted by applicable law, the project maintainers and contributors disclaim liability for any direct, indirect, incidental, special, exemplary, or consequential damages arising from the use of `rulesmith`, host AI systems, or generated outputs.
+
 ## Project policies
 
 - Contributing process: `CONTRIBUTING.md`
 - Contributor license agreement template: `CLA.md`
+- Security policy: `SECURITY.md`
 - Project governance: `GOVERNANCE.md`
 - Trademark policy: `TRADEMARKS.md`
 
