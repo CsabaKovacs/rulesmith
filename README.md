@@ -102,7 +102,30 @@ codex mcp add rulesmith --env RULESMITH_HOME="$PWD" -- node "$PWD/packages/mcp/d
 codex -C /absolute/path/to/target-repo
 ```
 
-Then ask Codex/Claude/Junie to run this sequence:
+After opening the repo, run this in the Codex chat (copy/paste):
+
+```text
+Use rulesmith MCP end-to-end on the currently opened repository.
+
+Run:
+1) scan_repo
+2) build_evidence_bundle with focus="generic", maxFiles=2000, includeContent=false
+3) expand evidence with list_files/search/read_files on key areas
+4) render_rules with targets { codex: true, copilot: true, claude: true, junie: true }
+5) diff_rules
+
+Then summarize:
+- detected stack/frameworks with confidence
+- key build/test/lint/format commands with evidence
+- guardrails/forbidden paths
+- exact files that would be generated
+
+If the diff looks valid, run apply_rules in safe mode and report written files.
+```
+
+If you use Claude/Junie instead of Codex, ask that host chat to run the same sequence.
+
+Then the host should run this sequence:
 - `scan_repo`
 - `build_evidence_bundle` (usually `includeContent=false`)
 - expand with `list_files` / `search` / `read_files`
@@ -277,7 +300,9 @@ Use in a repo:
 codex -C /absolute/path/to/target-repo
 ```
 
-Example prompt:
+Important: after `codex -C ...`, tools do not run automatically. You must issue the prompt in Codex chat.
+
+Example prompt to paste in chat:
 
 ```text
 Use rulesmith MCP on this repository.
