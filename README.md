@@ -25,7 +25,27 @@ If your goal is stricter, project-specific, high-quality rules, start with MCP +
 
 ## 1-Minute Quickstart (MCP-first, recommended)
 
-![rulesmith quickstart GIF](https://dummyimage.com/1200x630/0f172a/e2e8f0.gif&text=rulesmith+1-minute+quickstart)
+If you are not technical, you can copy this prompt into your AI coding chat and it will guide or execute setup for you. Replace the path placeholder first.
+
+```text
+Please install and run rulesmith for me step by step.
+
+Repository:
+https://github.com/CsabaKovacs/rulesmith
+
+Target project path:
+<ABSOLUTE_PATH_TO_TARGET_REPO>
+
+What I need:
+1) Clone and install rulesmith on my machine.
+2) Build it.
+3) Register it as an MCP server in this chat environment.
+4) Run a full repository scan on my target project.
+5) Generate and apply rule files in safe mode.
+6) At the end, show a short summary of what was installed, configured, and generated.
+```
+
+If you prefer manual terminal commands, use this block:
 
 ```bash
 git clone git@github.com:CsabaKovacs/rulesmith.git rulesmith
@@ -38,8 +58,6 @@ codex mcp add rulesmith --env RULESMITH_HOME="$PWD" -- node "$PWD/packages/mcp/d
 # Open your target project with Codex
 codex -C /absolute/path/to/target-repo
 ```
-
-If you want this block to show a real terminal demo, replace the image with your recorded GIF file (recommended path: `docs/assets/rulesmith-quickstart.gif`).
 
 Then ask Codex/Claude/Junie to run this sequence:
 - `scan_repo`
