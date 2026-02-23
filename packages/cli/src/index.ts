@@ -17,7 +17,14 @@ import {
 } from "@rulesmith/core";
 import type { OutputProfile, RenderPolicy, StandardsMode, StrictnessLevel } from "@rulesmith/core";
 
-type RenderTargets = { codex: boolean; copilot: boolean; claude: boolean; junie: boolean };
+type RenderTargets = {
+  codex: boolean;
+  copilot: boolean;
+  claude: boolean;
+  junie: boolean;
+  gemini: boolean;
+  antigravity: boolean;
+};
 type BundleFocus = "laravel" | "generic";
 type ApplyMode = "none" | "safe" | "force";
 
@@ -31,10 +38,12 @@ function parseTargets(value: string): RenderTargets {
     codex: set.has("codex"),
     copilot: set.has("copilot"),
     claude: set.has("claude"),
-    junie: set.has("junie")
+    junie: set.has("junie"),
+    gemini: set.has("gemini"),
+    antigravity: set.has("antigravity")
   };
-  if (!targets.codex && !targets.copilot && !targets.claude && !targets.junie) {
-    throw new Error("At least one target is required (codex,copilot,claude,junie).");
+  if (!targets.codex && !targets.copilot && !targets.claude && !targets.junie && !targets.gemini && !targets.antigravity) {
+    throw new Error("At least one target is required (codex,copilot,claude,junie,gemini,antigravity).");
   }
   return targets;
 }
@@ -51,7 +60,10 @@ function parseStandards(value: string | undefined): StandardsMode | undefined {
   throw new Error("Invalid standards mode. Use auto|project-only|project-plus-standard.");
 }
 
-function parseOutputProfile(value: string | undefined, label: "copilot" | "claude" | "junie"): OutputProfile | undefined {
+function parseOutputProfile(
+  value: string | undefined,
+  label: "copilot" | "claude" | "junie" | "gemini" | "antigravity"
+): OutputProfile | undefined {
   if (!value) return undefined;
   if (value === "short" || value === "strict") return value;
   throw new Error(`Invalid ${label} profile. Use short|strict.`);
@@ -83,13 +95,17 @@ function policyFromFlags(args: {
   copilotProfile?: string;
   claudeProfile?: string;
   junieProfile?: string;
+  geminiProfile?: string;
+  antigravityProfile?: string;
 }): RenderPolicy {
   return {
     strictness: parseStrictness(args.strictness) ?? "strict",
     standards: parseStandards(args.standards) ?? "auto",
     copilotProfile: parseOutputProfile(args.copilotProfile, "copilot") ?? "strict",
     claudeProfile: parseOutputProfile(args.claudeProfile, "claude") ?? "strict",
-    junieProfile: parseOutputProfile(args.junieProfile, "junie") ?? "strict"
+    junieProfile: parseOutputProfile(args.junieProfile, "junie") ?? "strict",
+    geminiProfile: parseOutputProfile(args.geminiProfile, "gemini") ?? "strict",
+    antigravityProfile: parseOutputProfile(args.antigravityProfile, "antigravity") ?? "strict"
   };
 }
 
@@ -106,7 +122,9 @@ function buildAiAuthorPrompt(args: {
     args.targets.codex ? "codex" : "",
     args.targets.copilot ? "copilot" : "",
     args.targets.claude ? "claude" : "",
-    args.targets.junie ? "junie" : ""
+    args.targets.junie ? "junie" : "",
+    args.targets.gemini ? "gemini" : "",
+    args.targets.antigravity ? "antigravity" : ""
   ]
     .filter(Boolean)
     .join(", ");
@@ -121,7 +139,7 @@ function buildAiAuthorPrompt(args: {
     `Bundle maxFiles used: ${args.maxFiles}`,
     `Bundle mode: ${args.includeContent ? "with-content" : "paths-only"}`,
     `Targets: ${targets}`,
-    `Policy: strictness=${args.policy.strictness ?? "strict"}, standards=${args.policy.standards ?? "auto"}, copilotProfile=${args.policy.copilotProfile ?? "strict"}, claudeProfile=${args.policy.claudeProfile ?? "strict"}, junieProfile=${args.policy.junieProfile ?? "strict"}`,
+    `Policy: strictness=${args.policy.strictness ?? "strict"}, standards=${args.policy.standards ?? "auto"}, copilotProfile=${args.policy.copilotProfile ?? "strict"}, claudeProfile=${args.policy.claudeProfile ?? "strict"}, junieProfile=${args.policy.junieProfile ?? "strict"}, geminiProfile=${args.policy.geminiProfile ?? "strict"}, antigravityProfile=${args.policy.antigravityProfile ?? "strict"}`,
     "",
     "Workflow:",
     "1) Load the bundle JSON and use it as starting evidence only.",
@@ -129,7 +147,7 @@ function buildAiAuthorPrompt(args: {
     "3) For Laravel/module-style codebases, inspect routes, controllers, requests, entities, migrations, config/auth, kernel middleware, layouts, asset build scripts, and permissions wiring.",
     "4) Produce a highly specific rulebook with concrete conventions already present in this repository.",
     "5) Every important claim must cite 1+ evidence files; uncertain claims must stay in UNKNOWN/TODO.",
-    "6) Generate AGENTS.md, CLAUDE.md, .junie/guidelines.md, and Copilot files with consistent strictness.",
+    "6) Generate AGENTS.md, CLAUDE.md, GEMINI.md, .junie/guidelines.md, .agent/rules/rulesmith.instructions.md, and Copilot files with consistent strictness.",
     "7) Show diff first, then apply in safe mode if valid.",
     "",
     "Output requirements:",
@@ -247,12 +265,14 @@ async function collectStartConfigInteractive(args: {
 
     const targetsInput = await promptText(
       rl,
-      "Targets (comma separated: codex,copilot,claude,junie)",
+      "Targets (comma separated: codex,copilot,claude,junie,gemini,antigravity)",
       [
         args.defaultTargets.codex ? "codex" : "",
         args.defaultTargets.copilot ? "copilot" : "",
         args.defaultTargets.claude ? "claude" : "",
-        args.defaultTargets.junie ? "junie" : ""
+        args.defaultTargets.junie ? "junie" : "",
+        args.defaultTargets.gemini ? "gemini" : "",
+        args.defaultTargets.antigravity ? "antigravity" : ""
       ]
         .filter(Boolean)
         .join(",")
@@ -295,6 +315,30 @@ async function collectStartConfigInteractive(args: {
         )
       : (args.defaultPolicy.junieProfile ?? "strict");
 
+    const geminiProfile = parsedTargets.gemini
+      ? await promptChoice(
+          rl,
+          "Gemini output profile?",
+          [
+            { value: "strict", label: "strict - full detailed rulebook" },
+            { value: "short", label: "short - concise instructions" }
+          ],
+          (args.defaultPolicy.geminiProfile ?? "strict") as OutputProfile
+        )
+      : (args.defaultPolicy.geminiProfile ?? "strict");
+
+    const antigravityProfile = parsedTargets.antigravity
+      ? await promptChoice(
+          rl,
+          "Antigravity output profile?",
+          [
+            { value: "strict", label: "strict - full detailed rulebook" },
+            { value: "short", label: "short - concise instructions" }
+          ],
+          (args.defaultPolicy.antigravityProfile ?? "strict") as OutputProfile
+        )
+      : (args.defaultPolicy.antigravityProfile ?? "strict");
+
     const maxFilesInput = await promptText(
       rl,
       "Max files in evidence bundle (0 = full scan)",
@@ -314,7 +358,7 @@ async function collectStartConfigInteractive(args: {
 
     return {
       focus,
-      policy: { strictness, standards, copilotProfile, claudeProfile, junieProfile },
+      policy: { strictness, standards, copilotProfile, claudeProfile, junieProfile, geminiProfile, antigravityProfile },
       targets: parsedTargets,
       maxFiles: parseMaxFiles(maxFilesInput),
       applyMode
@@ -334,12 +378,14 @@ async function main() {
     .argument("[repoPath]")
     .option("--pack <pack>", "pack name", "default")
     .option("--overrides <overrides>", "override directory")
-    .option("--targets <targets>", "codex,copilot,claude,junie", "codex,copilot,claude,junie")
+    .option("--targets <targets>", "codex,copilot,claude,junie,gemini,antigravity", "codex,copilot,claude,junie,gemini,antigravity")
     .option("--strictness <strictness>", "baseline|strict|very-strict")
     .option("--standards <standards>", "auto|project-only|project-plus-standard")
     .option("--copilot-profile <copilotProfile>", "short|strict")
     .option("--claude-profile <claudeProfile>", "short|strict")
     .option("--junie-profile <junieProfile>", "short|strict")
+    .option("--gemini-profile <geminiProfile>", "short|strict")
+    .option("--antigravity-profile <antigravityProfile>", "short|strict")
     .option("--focus <focus>", "auto|laravel|generic", "auto")
     .option("--maxFiles <maxFiles>", "max files in evidence bundle (0 = full scan)", "0")
     .option("--include-content", "store file contents in bundle (default: paths only)")
@@ -364,7 +410,9 @@ async function main() {
         standards: options.standards,
         copilotProfile: options.copilotProfile,
         claudeProfile: options.claudeProfile,
-        junieProfile: options.junieProfile
+        junieProfile: options.junieProfile,
+        geminiProfile: options.geminiProfile,
+        antigravityProfile: options.antigravityProfile
       });
       const defaultTargets = parseTargets(options.targets);
       const defaultMaxFiles = parseMaxFiles(options.maxFiles);
@@ -495,12 +543,14 @@ async function main() {
     .option("--focus <focus>", "auto|laravel|generic", "auto")
     .option("--maxFiles <maxFiles>", "max files in evidence bundle (0 = full scan)", "0")
     .option("--include-content", "store file contents in bundle (default: paths only)")
-    .option("--targets <targets>", "codex,copilot,claude,junie", "codex,copilot,claude,junie")
+    .option("--targets <targets>", "codex,copilot,claude,junie,gemini,antigravity", "codex,copilot,claude,junie,gemini,antigravity")
     .option("--strictness <strictness>", "baseline|strict|very-strict", "strict")
     .option("--standards <standards>", "auto|project-only|project-plus-standard", "auto")
     .option("--copilot-profile <copilotProfile>", "short|strict", "strict")
     .option("--claude-profile <claudeProfile>", "short|strict", "strict")
     .option("--junie-profile <junieProfile>", "short|strict", "strict")
+    .option("--gemini-profile <geminiProfile>", "short|strict", "strict")
+    .option("--antigravity-profile <antigravityProfile>", "short|strict", "strict")
     .option("--bundleOut <bundleOut>", "bundle output file", ".rulesmith/bundle.json")
     .option("--promptOut <promptOut>", "generated prompt file", ".rulesmith/compose-prompt.md")
     .action(async (repoPathArg, options) => {
@@ -513,7 +563,9 @@ async function main() {
         standards: options.standards,
         copilotProfile: options.copilotProfile,
         claudeProfile: options.claudeProfile,
-        junieProfile: options.junieProfile
+        junieProfile: options.junieProfile,
+        geminiProfile: options.geminiProfile,
+        antigravityProfile: options.antigravityProfile
       });
       const targets = parseTargets(options.targets);
       const requestedMaxFiles = parseMaxFiles(options.maxFiles);
@@ -567,12 +619,14 @@ async function main() {
     .argument("[repoPath]")
     .option("--pack <pack>", "pack name", "default")
     .option("--overrides <overrides>", "override directory")
-    .option("--targets <targets>", "codex,copilot,claude,junie", "codex,copilot,claude,junie")
+    .option("--targets <targets>", "codex,copilot,claude,junie,gemini,antigravity", "codex,copilot,claude,junie,gemini,antigravity")
     .option("--strictness <strictness>", "baseline|strict|very-strict", "strict")
     .option("--standards <standards>", "auto|project-only|project-plus-standard", "auto")
     .option("--copilot-profile <copilotProfile>", "short|strict", "strict")
     .option("--claude-profile <claudeProfile>", "short|strict", "strict")
     .option("--junie-profile <junieProfile>", "short|strict", "strict")
+    .option("--gemini-profile <geminiProfile>", "short|strict", "strict")
+    .option("--antigravity-profile <antigravityProfile>", "short|strict", "strict")
     .option("--outdir <outdir>", "output directory", ".rulesmith/out")
     .action(async (repoPathArg, options) => {
       const files = await renderRules({
@@ -585,7 +639,9 @@ async function main() {
           standards: options.standards,
           copilotProfile: options.copilotProfile,
           claudeProfile: options.claudeProfile,
-          junieProfile: options.junieProfile
+          junieProfile: options.junieProfile,
+          geminiProfile: options.geminiProfile,
+          antigravityProfile: options.antigravityProfile
         })
       });
       const outDir = path.resolve(options.outdir);
@@ -602,12 +658,14 @@ async function main() {
     .argument("[repoPath]")
     .option("--pack <pack>", "pack name", "default")
     .option("--overrides <overrides>", "override directory")
-    .option("--targets <targets>", "codex,copilot,claude,junie", "codex,copilot,claude,junie")
+    .option("--targets <targets>", "codex,copilot,claude,junie,gemini,antigravity", "codex,copilot,claude,junie,gemini,antigravity")
     .option("--strictness <strictness>", "baseline|strict|very-strict", "strict")
     .option("--standards <standards>", "auto|project-only|project-plus-standard", "auto")
     .option("--copilot-profile <copilotProfile>", "short|strict", "strict")
     .option("--claude-profile <claudeProfile>", "short|strict", "strict")
     .option("--junie-profile <junieProfile>", "short|strict", "strict")
+    .option("--gemini-profile <geminiProfile>", "short|strict", "strict")
+    .option("--antigravity-profile <antigravityProfile>", "short|strict", "strict")
     .action(async (repoPathArg, options) => {
       const files = await renderRules({
         repoPath: resolveRepoPath(repoPathArg),
@@ -619,7 +677,9 @@ async function main() {
           standards: options.standards,
           copilotProfile: options.copilotProfile,
           claudeProfile: options.claudeProfile,
-          junieProfile: options.junieProfile
+          junieProfile: options.junieProfile,
+          geminiProfile: options.geminiProfile,
+          antigravityProfile: options.antigravityProfile
         })
       });
       const patch = await diffRules({ repoPath: resolveRepoPath(repoPathArg), files });
@@ -631,12 +691,14 @@ async function main() {
     .argument("[repoPath]")
     .option("--pack <pack>", "pack name", "default")
     .option("--overrides <overrides>", "override directory")
-    .option("--targets <targets>", "codex,copilot,claude,junie", "codex,copilot,claude,junie")
+    .option("--targets <targets>", "codex,copilot,claude,junie,gemini,antigravity", "codex,copilot,claude,junie,gemini,antigravity")
     .option("--strictness <strictness>", "baseline|strict|very-strict", "strict")
     .option("--standards <standards>", "auto|project-only|project-plus-standard", "auto")
     .option("--copilot-profile <copilotProfile>", "short|strict", "strict")
     .option("--claude-profile <claudeProfile>", "short|strict", "strict")
     .option("--junie-profile <junieProfile>", "short|strict", "strict")
+    .option("--gemini-profile <geminiProfile>", "short|strict", "strict")
+    .option("--antigravity-profile <antigravityProfile>", "short|strict", "strict")
     .option("--mode <mode>", "safe|force", "safe")
     .action(async (repoPathArg, options) => {
       const repoPath = resolveRepoPath(repoPathArg);
@@ -650,7 +712,9 @@ async function main() {
           standards: options.standards,
           copilotProfile: options.copilotProfile,
           claudeProfile: options.claudeProfile,
-          junieProfile: options.junieProfile
+          junieProfile: options.junieProfile,
+          geminiProfile: options.geminiProfile,
+          antigravityProfile: options.antigravityProfile
         })
       });
       const result = await applyRules({
@@ -671,7 +735,9 @@ async function main() {
       const required = [
         "agents.md.hbs",
         "claude.md.hbs",
+        "gemini.md.hbs",
         "junie-guidelines.md.hbs",
+        "antigravity-rules.md.hbs",
         "copilot-instructions.md.hbs",
         "copilot-area.instructions.md.hbs"
       ];
@@ -680,7 +746,9 @@ async function main() {
       const candidateOutputs = [
         "AGENTS.md",
         "CLAUDE.md",
+        "GEMINI.md",
         ".junie/guidelines.md",
+        ".agent/rules/rulesmith.instructions.md",
         ".github/copilot-instructions.md",
         ".github/instructions/area.instructions.md"
       ];

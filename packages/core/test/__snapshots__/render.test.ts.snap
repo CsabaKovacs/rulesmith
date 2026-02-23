@@ -2,11 +2,13 @@
 
 exports[`renderer > renders all targets for laravel fixture 1`] = `
 [
+  ".agent/rules/rulesmith.instructions.md",
   ".github/copilot-instructions.md",
   ".github/instructions/controllers.instructions.md",
   ".github/instructions/routes.instructions.md",
   ".junie/guidelines.md",
   "AGENTS.md",
   "CLAUDE.md",
+  "GEMINI.md",
 ]
 `;

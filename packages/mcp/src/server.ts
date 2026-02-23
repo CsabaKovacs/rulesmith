@@ -162,10 +162,12 @@ async function start() {
       pack: z.string().optional(),
       overrides: z.string().optional(),
       targets: z.object({
-        codex: z.boolean(),
-        copilot: z.boolean(),
-        claude: z.boolean(),
-        junie: z.boolean().optional()
+        codex: z.boolean().optional(),
+        copilot: z.boolean().optional(),
+        claude: z.boolean().optional(),
+        junie: z.boolean().optional(),
+        gemini: z.boolean().optional(),
+        antigravity: z.boolean().optional()
       }),
       policy: z
         .object({
@@ -173,7 +175,9 @@ async function start() {
           standards: z.enum(["auto", "project-only", "project-plus-standard"]).optional(),
           copilotProfile: z.enum(["short", "strict"]).optional(),
           claudeProfile: z.enum(["short", "strict"]).optional(),
-          junieProfile: z.enum(["short", "strict"]).optional()
+          junieProfile: z.enum(["short", "strict"]).optional(),
+          geminiProfile: z.enum(["short", "strict"]).optional(),
+          antigravityProfile: z.enum(["short", "strict"]).optional()
         })
         .optional()
     },
@@ -182,7 +186,14 @@ async function start() {
         repoPath: path.resolve(repoPath ?? process.cwd()),
         pack,
         overrides,
-        targets: { ...targets, junie: targets.junie ?? false },
+        targets: {
+          codex: targets.codex ?? false,
+          copilot: targets.copilot ?? false,
+          claude: targets.claude ?? false,
+          junie: targets.junie ?? false,
+          gemini: targets.gemini ?? false,
+          antigravity: targets.antigravity ?? false
+        },
         policy
       })
   );

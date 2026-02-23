@@ -21,9 +21,14 @@ describe("safe fs", () => {
     const repo = await mkTmp();
     await expect(assertAllowedWritePath(repo, "README.md")).rejects.toThrow(/allowlist/i);
     await expect(assertAllowedWritePath(repo, "AGENTS.md")).resolves.toContain("AGENTS.md");
+    await expect(assertAllowedWritePath(repo, "GEMINI.md")).resolves.toContain("GEMINI.md");
     await expect(assertAllowedWritePath(repo, ".junie/guidelines.md")).resolves.toContain(".junie/guidelines.md");
+    await expect(assertAllowedWritePath(repo, ".agent/rules/rulesmith.instructions.md")).resolves.toContain(
+      ".agent/rules/rulesmith.instructions.md"
+    );
     expect(isAllowedWritePath(".github/instructions/api.instructions.md")).toBe(true);
     expect(isAllowedWritePath(".junie/guidelines.md")).toBe(true);
+    expect(isAllowedWritePath(".agent/rules/rulesmith.instructions.md")).toBe(true);
   });
 
   it("rejects traversal and absolute reads", async () => {

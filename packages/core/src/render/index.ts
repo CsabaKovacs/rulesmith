@@ -12,6 +12,8 @@ export type RenderTargets = {
   copilot: boolean;
   claude: boolean;
   junie: boolean;
+  gemini: boolean;
+  antigravity: boolean;
 };
 
 export type StrictnessLevel = "baseline" | "strict" | "very-strict";
@@ -24,6 +26,8 @@ export type RenderPolicy = {
   copilotProfile?: OutputProfile;
   claudeProfile?: OutputProfile;
   junieProfile?: OutputProfile;
+  geminiProfile?: OutputProfile;
+  antigravityProfile?: OutputProfile;
 };
 
 export type GeneratedFile = {
@@ -99,7 +103,9 @@ function toTemplateContext(
     policy: options.policy,
     copilotStrict: options.policy.copilotProfile === "strict",
     claudeStrict: options.policy.claudeProfile === "strict",
-    junieStrict: options.policy.junieProfile === "strict"
+    junieStrict: options.policy.junieProfile === "strict",
+    geminiStrict: options.policy.geminiProfile === "strict",
+    antigravityStrict: options.policy.antigravityProfile === "strict"
   };
 }
 
@@ -118,14 +124,18 @@ export async function renderRules(args: {
     standards: args.policy?.standards ?? "auto",
     copilotProfile: args.policy?.copilotProfile ?? "strict",
     claudeProfile: args.policy?.claudeProfile ?? "strict",
-    junieProfile: args.policy?.junieProfile ?? "strict"
+    junieProfile: args.policy?.junieProfile ?? "strict",
+    geminiProfile: args.policy?.geminiProfile ?? "strict",
+    antigravityProfile: args.policy?.antigravityProfile ?? "strict"
   };
 
   const effectiveTargets: RenderTargets = {
     codex: args.targets.codex && decision.enabledTargets.has("codex"),
     copilot: args.targets.copilot && decision.enabledTargets.has("copilot"),
     claude: args.targets.claude && decision.enabledTargets.has("claude"),
-    junie: args.targets.junie && decision.enabledTargets.has("junie")
+    junie: args.targets.junie && decision.enabledTargets.has("junie"),
+    gemini: args.targets.gemini && decision.enabledTargets.has("gemini"),
+    antigravity: args.targets.antigravity && decision.enabledTargets.has("antigravity")
   };
 
   const unknowns: string[] = [];
@@ -187,6 +197,20 @@ export async function renderRules(args: {
     files.push({
       path: ".junie/guidelines.md",
       content: renderTemplate(pickTemplate(pack.templates, "junie-guidelines.md.hbs"), context)
+    });
+  }
+
+  if (effectiveTargets.gemini) {
+    files.push({
+      path: "GEMINI.md",
+      content: renderTemplate(pickTemplate(pack.templates, "gemini.md.hbs"), context)
+    });
+  }
+
+  if (effectiveTargets.antigravity) {
+    files.push({
+      path: ".agent/rules/rulesmith.instructions.md",
+      content: renderTemplate(pickTemplate(pack.templates, "antigravity-rules.md.hbs"), context)
     });
   }
 

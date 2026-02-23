@@ -5,7 +5,9 @@
   "templates": [
     "agents.md.hbs",
     "claude.md.hbs",
+    "gemini.md.hbs",
     "junie-guidelines.md.hbs",
+    "antigravity-rules.md.hbs",
     "copilot-instructions.md.hbs",
     "copilot-area.instructions.md.hbs"
   ]

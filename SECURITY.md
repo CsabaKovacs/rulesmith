@@ -50,7 +50,7 @@ This policy covers security issues in `rulesmith`, including (but not limited to
 `rulesmith` is a local-first evidence and workflow tool. It does **not** guarantee:
 - correctness of repository interpretation
 - correctness/safety of host AI outputs
-- secure behavior of third-party AI hosts or plugins (for example Codex, Claude, Copilot, Junie)
+- secure behavior of third-party AI hosts or plugins (for example Codex, Claude, Copilot, Junie, Gemini, Antigravity)
 - confidentiality guarantees for data sent to host AI providers through MCP-integrated workflows
 
 AI-assisted outputs (instructions, prompts, diffs, code suggestions) must be reviewed and validated by a qualified human before use in any environment.

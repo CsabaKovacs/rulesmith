@@ -11,7 +11,7 @@ export type DecisionCondition =
 
 export type DecisionAction =
   | { include_snippets: string[] }
-  | { enable_targets: Array<"codex" | "copilot" | "claude" | "junie"> }
+  | { enable_targets: Array<"codex" | "copilot" | "claude" | "junie" | "gemini" | "antigravity"> }
   | { generate_area_instructions: { name: string; applyTo: string }[] };
 
 export type DecisionNode = {
@@ -28,7 +28,7 @@ export type DecisionTree = {
 
 export type DecisionResult = {
   snippets: string[];
-  enabledTargets: Set<"codex" | "copilot" | "claude" | "junie">;
+  enabledTargets: Set<"codex" | "copilot" | "claude" | "junie" | "gemini" | "antigravity">;
   areaInstructions: { name: string; applyTo: string }[];
   matchedNodes: string[];
 };
@@ -81,7 +81,7 @@ function evaluateNode(node: DecisionNode, profile: ProjectProfile): boolean {
 export function evaluateDecisionTree(tree: DecisionTree, profile: ProjectProfile): DecisionResult {
   const result: DecisionResult = {
     snippets: [],
-    enabledTargets: new Set(["codex", "copilot", "claude", "junie"]),
+    enabledTargets: new Set(["codex", "copilot", "claude", "junie", "gemini", "antigravity"]),
     areaInstructions: [],
     matchedNodes: []
   };

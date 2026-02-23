@@ -1,0 +1,88 @@
+# Gemini CLI Rulebook (Evidence-Backed)
+
+{{#if geminiStrict}}
+## Execution Contract
+- Use strict evidence-first behavior: every non-trivial claim must cite concrete files from this repository.
+- Enforce repository conventions before introducing new patterns.
+- strictness: `{{policy.strictness}}`
+- standards: `{{policy.standards}}`
+- profile: `strict`
+
+## Project Snapshot
+{{#each rulebook.snapshot}}
+- {{this}}
+{{/each}}
+
+## Setup Commands (with evidence)
+- install: `{{#if buildCommands.install}}{{buildCommands.install}}{{else}}UNKNOWN{{/if}}`
+- build: `{{#if buildCommands.build}}{{buildCommands.build}}{{else}}UNKNOWN{{/if}}`
+- test: `{{#if buildCommands.test}}{{buildCommands.test}}{{else}}UNKNOWN{{/if}}`
+- lint: `{{#if buildCommands.lint}}{{buildCommands.lint}}{{else}}UNKNOWN{{/if}}`
+- format: `{{#if buildCommands.format}}{{buildCommands.format}}{{else}}UNKNOWN{{/if}}`
+- dev: `{{#if buildCommands.dev}}{{buildCommands.dev}}{{else}}UNKNOWN{{/if}}`
+
+Evidence:
+{{#each profile.build.evidence}}
+- {{this}}
+{{/each}}
+
+## Detailed Conventions
+{{#each rulebook.sections}}
+### {{title}}
+{{#each bullets}}
+- {{this}}
+{{/each}}
+{{/each}}
+
+## Detected Frameworks
+{{#each profile.frameworks}}
+- {{name}} (confidence: {{confidence}}) evidence: {{#each evidence}}{{this}}{{#unless @last}}, {{/unless}}{{/each}}
+{{/each}}
+
+## Guardrails
+Forbidden paths:
+{{#each profile.guardrails.forbiddenPaths}}
+- {{this}}
+{{/each}}
+
+Notes:
+{{#each profile.guardrails.notes}}
+- {{this}}
+{{/each}}
+
+## UNKNOWN/TODO
+{{#if unknowns.length}}
+{{#each unknowns}}
+- {{this}}
+{{/each}}
+{{else}}
+- None.
+{{/if}}
+{{else}}
+## Execution Contract
+- strictness: `{{policy.strictness}}`
+- standards: `{{policy.standards}}`
+- profile: `short`
+- Keep edits minimal and evidence-backed.
+
+## Setup
+- install: `{{#if buildCommands.install}}{{buildCommands.install}}{{else}}UNKNOWN{{/if}}`
+- test: `{{#if buildCommands.test}}{{buildCommands.test}}{{else}}UNKNOWN{{/if}}`
+- lint: `{{#if buildCommands.lint}}{{buildCommands.lint}}{{else}}UNKNOWN{{/if}}`
+- format: `{{#if buildCommands.format}}{{buildCommands.format}}{{else}}UNKNOWN{{/if}}`
+
+## Key Conventions
+{{#each rulebook.sections}}
+### {{title}}
+{{#each bullets}}
+{{#if @first}}
+- {{this}}
+{{/if}}
+{{/each}}
+{{/each}}
+
+## Guardrails
+{{#each profile.guardrails.forbiddenPaths}}
+- {{this}}
+{{/each}}
+{{/if}}

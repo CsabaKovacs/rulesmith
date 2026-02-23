@@ -13,12 +13,12 @@ Licensed under **Apache-2.0**. Contributions require a signed **CLA** before mer
 
 It does three things really well:
 - collects deterministic repository evidence (without hallucinating)
-- guides a repeatable mapping workflow for hosts like Codex / Claude / Junie
+- guides a repeatable mapping workflow for hosts like Codex / Claude / Junie / Gemini CLI / Antigravity
 - generates (or helps you author) strict instruction files for future AI runs
 
 ## Read this first: choose mode
 
-- **MCP + host AI mode (recommended):** run `rulesmith` as MCP inside Codex/Claude/Junie. The host AI reads evidence and writes project-specific rule files with reasoning.
+- **MCP + host AI mode (recommended):** run `rulesmith` as MCP inside Codex/Claude/Junie/Gemini/Antigravity. The host AI reads evidence and writes project-specific rule files with reasoning.
 - **CLI template mode (secondary/fallback):** run `rulesmith` from terminal (`start`/`render`/`apply`). This mode does **not** call any AI model; it renders deterministic output from scanner + templates.
 
 If your goal is stricter, project-specific, high-quality rules, start with MCP + host AI.
@@ -66,7 +66,7 @@ What to do:
 
 4) Generate and apply rule files
 - render_rules with targets:
-  { codex: true, copilot: true, claude: true, junie: true }
+  { codex: true, copilot: true, claude: true, junie: true, gemini: true, antigravity: true }
 - diff_rules and show the diff summary.
 - If diff is valid, apply_rules with mode="safe".
 
@@ -74,9 +74,11 @@ What to do:
 Confirm these exist (if target supports them):
 - AGENTS.md
 - CLAUDE.md
+- GEMINI.md
 - .github/copilot-instructions.md
 - .github/instructions/*.instructions.md (optional)
 - .junie/guidelines.md
+- .agent/rules/rulesmith.instructions.md
 
 6) Final report (required)
 Return a concise report with:
@@ -111,7 +113,7 @@ Run:
 1) scan_repo
 2) build_evidence_bundle with focus="generic", maxFiles=2000, includeContent=false
 3) expand evidence with list_files/search/read_files on key areas
-4) render_rules with targets { codex: true, copilot: true, claude: true, junie: true }
+4) render_rules with targets { codex: true, copilot: true, claude: true, junie: true, gemini: true, antigravity: true }
 5) diff_rules
 
 Then summarize:
@@ -123,7 +125,7 @@ Then summarize:
 If the diff looks valid, run apply_rules in safe mode and report written files.
 ```
 
-If you use Claude/Junie instead of Codex, ask that host chat to run the same sequence.
+If you use Claude/Junie/Gemini/Antigravity instead of Codex, ask that host chat to run the same sequence.
 
 Then the host should run this sequence:
 - `scan_repo`
@@ -157,7 +159,7 @@ Result: better instructions, fewer regressions, less prompt babysitting.
 - `rulesmith` is a repository evidence and workflow assistant for AI-assisted development. It is **not** a correctness, security, or compliance guarantee.
 - `rulesmith` works from repository signals (files, configs, scripts, and structure), which may be incomplete, outdated, inconsistent, or misleading.
 - As a result, generated instruction files, prompts, or workflow artifacts may not fully match your real project conventions.
-- Host AI systems (for example Codex, Claude, Copilot, or Junie) may produce incorrect, incomplete, insecure, or unsafe outputs even when using `rulesmith`.
+- Host AI systems (for example Codex, Claude, Copilot, Junie, Gemini, or Antigravity) may produce incorrect, incomplete, insecure, or unsafe outputs even when using `rulesmith`.
 - In MCP + host AI mode, repository content may be sent to the host AI/provider based on your host/tool configuration. You are responsible for what data you expose.
 - You are solely responsible for reviewing, testing, and validating all generated rules, prompts, diffs, and code before applying them in development, staging, or production environments.
 - You should adapt generated outputs to your project’s actual architecture, constraints, coding standards, and risk tolerance.
@@ -177,7 +179,9 @@ Result: better instructions, fewer regressions, less prompt babysitting.
 For a target repository:
 - `AGENTS.md`
 - `CLAUDE.md`
+- `GEMINI.md`
 - `.junie/guidelines.md`
+- `.agent/rules/rulesmith.instructions.md`
 - `.github/copilot-instructions.md`
 - optional `.github/instructions/*.instructions.md`
 
@@ -198,6 +202,8 @@ Optional host clients:
 - Codex CLI / Codex IDE extension
 - Claude Code / Claude Desktop
 - JetBrains Junie
+- Gemini CLI
+- Google Antigravity
 
 ## Installation
 
@@ -274,6 +280,8 @@ For full host-specific setup guides, see:
 - `docs/integrations/codex.md`
 - `docs/integrations/claude.md`
 - `docs/integrations/junie.md`
+- `docs/integrations/gemini.md`
+- `docs/integrations/antigravity.md`
 
 ## 1) Codex CLI
 
@@ -309,7 +317,7 @@ Use rulesmith MCP on this repository.
 1) scan_repo
 2) build_evidence_bundle with focus="generic", maxFiles=2000, includeContent=false
 3) expand evidence with list_files/search/read_files
-4) generate AGENTS.md, CLAUDE.md, .junie/guidelines.md, and Copilot instruction files
+4) generate AGENTS.md, CLAUDE.md, GEMINI.md, .junie/guidelines.md, .agent/rules/rulesmith.instructions.md, and Copilot instruction files
 5) show diff first, then apply
 ```
 
@@ -396,6 +404,53 @@ In Junie:
 - confirm server status is Active
 - start chat in target repo and call rulesmith tools
 
+## 6) Gemini CLI
+
+Gemini CLI supports MCP servers directly.
+
+Register `rulesmith`:
+
+```bash
+export RULESMITH_HOME="/absolute/path/to/rulesmith"
+
+gemini mcp add \
+  --scope project \
+  --transport stdio \
+  --env RULESMITH_HOME="$RULESMITH_HOME" \
+  rulesmith \
+  node "$RULESMITH_HOME/packages/mcp/dist/server.js"
+```
+
+Verify:
+
+```bash
+gemini mcp list
+```
+
+Then in Gemini chat, run the same MCP workflow (`scan_repo` -> `build_evidence_bundle` -> `render_rules` -> `diff_rules` -> `apply_rules`).
+
+## 7) Antigravity
+
+Antigravity supports MCP server configuration via its MCP settings/config file flow.
+
+Add a local stdio server entry:
+
+```json
+{
+  "mcpServers": {
+    "rulesmith": {
+      "command": "node",
+      "args": ["/absolute/path/to/rulesmith/packages/mcp/dist/server.js"],
+      "env": {
+        "RULESMITH_HOME": "/absolute/path/to/rulesmith"
+      }
+    }
+  }
+}
+```
+
+Use Antigravity MCP settings to load/activate this config, then run the same rulesmith workflow in chat.
+
 ## CLI usage (secondary fallback mode, no host AI)
 
 This mode is deterministic and **does not use an AI model**.
@@ -450,7 +505,7 @@ Render files:
 ```bash
 node packages/cli/dist/index.js render /absolute/path/to/target-repo \
   --pack default \
-  --targets codex,copilot,claude,junie \
+  --targets codex,copilot,claude,junie,gemini,antigravity \
   --outdir .rulesmith/out
 ```
 
@@ -459,7 +514,7 @@ Diff:
 ```bash
 node packages/cli/dist/index.js diff /absolute/path/to/target-repo \
   --pack default \
-  --targets codex,copilot,claude,junie
+  --targets codex,copilot,claude,junie,gemini,antigravity
 ```
 
 Apply:
@@ -467,7 +522,7 @@ Apply:
 ```bash
 node packages/cli/dist/index.js apply /absolute/path/to/target-repo \
   --pack default \
-  --targets codex,copilot,claude,junie \
+  --targets codex,copilot,claude,junie,gemini,antigravity \
   --mode safe
 ```
 
@@ -500,7 +555,9 @@ Read operations are repo-root bounded and normalized.
 Write allowlist is strict:
 - `AGENTS.md`
 - `CLAUDE.md`
+- `GEMINI.md`
 - `.junie/guidelines.md`
+- `.agent/rules/rulesmith.instructions.md`
 - `.github/copilot-instructions.md`
 - `.github/instructions/*.instructions.md`
 
@@ -527,7 +584,7 @@ Example:
 node packages/cli/dist/index.js render /absolute/path/to/target-repo \
   --pack default \
   --overrides /absolute/path/to/my-pack-overrides \
-  --targets codex,copilot,claude,junie \
+  --targets codex,copilot,claude,junie,gemini,antigravity \
   --outdir .rulesmith/out
 ```
 
@@ -562,7 +619,7 @@ node packages/cli/dist/index.js doctor /absolute/path/to/target-repo
 
 ```bash
 node packages/cli/dist/index.js scan examples/fixtures/laravel_messy_min
-node packages/cli/dist/index.js diff examples/fixtures/laravel_messy_min --pack default --targets codex,copilot,claude,junie
+node packages/cli/dist/index.js diff examples/fixtures/laravel_messy_min --pack default --targets codex,copilot,claude,junie,gemini,antigravity
 ```
 
 ## References
@@ -571,3 +628,6 @@ node packages/cli/dist/index.js diff examples/fixtures/laravel_messy_min --pack 
 - Codex MCP docs: https://developers.openai.com/codex/mcp
 - Claude Code MCP docs: https://docs.anthropic.com/en/docs/claude-code/mcp
 - Junie MCP docs: https://junie.jetbrains.com/docs/junie-cli-mcp-configuration.html
+- Gemini CLI MCP docs: https://github.com/google-gemini/gemini-cli/blob/main/docs/tools/mcp-server.md
+- Gemini CLI `GEMINI.md` docs: https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/gemini.md
+- Antigravity MCP docs: https://firebase.google.com/docs/ai-assistance/mcp-server

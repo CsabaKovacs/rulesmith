@@ -9,6 +9,8 @@ Do not expose secrets or sensitive code unless you explicitly accept that risk.
 - `codex.md` - Codex CLI and Codex IDE extension setup
 - `claude.md` - Claude Code and Claude Desktop setup
 - `junie.md` - JetBrains Junie setup
+- `gemini.md` - Gemini CLI setup
+- `antigravity.md` - Google Antigravity setup
 
 ## Common prerequisites
 
