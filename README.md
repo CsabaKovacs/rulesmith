@@ -132,10 +132,10 @@ codex -C /absolute/path/to/target-repo
 ```
 
 Full workflow details, evidence budget, and tool reference:
-- `docs/mcp-workflow.md`
+- [docs/mcp-workflow.md](docs/mcp-workflow.md)
 
 Host-specific setup guides:
-- `docs/integrations/README.md`
+- [docs/integrations/README.md](docs/integrations/README.md)
 
 ## What can be generated
 
@@ -163,13 +163,13 @@ For a target repository:
 
 ## Docs
 
-- `docs/mcp-workflow.md` - MCP workflow, evidence budget, and tool details
-- `docs/cli.md` - CLI mode reference
-- `docs/security-model.md` - read/write guardrails
-- `docs/disclaimer.md` - full disclaimer
-- `docs/integrations/README.md` - host setup guides
-- `docs/references.md` - external references
-- `CONTRIBUTING.md`, `SECURITY.md`, `GOVERNANCE.md`, `TRADEMARKS.md`, `CLA.md`
+- [docs/mcp-workflow.md](docs/mcp-workflow.md) - MCP workflow, evidence budget, and tool details
+- [docs/cli.md](docs/cli.md) - CLI mode reference
+- [docs/security-model.md](docs/security-model.md) - read/write guardrails
+- [docs/disclaimer.md](docs/disclaimer.md) - full disclaimer
+- [docs/integrations/README.md](docs/integrations/README.md) - host setup guides
+- [docs/references.md](docs/references.md) - external references
+- [CONTRIBUTING.md](CONTRIBUTING.md), [SECURITY.md](SECURITY.md), [GOVERNANCE.md](GOVERNANCE.md), [TRADEMARKS.md](TRADEMARKS.md), [CLA.md](CLA.md)
 
 ## Disclaimer (short)
 
@@ -177,4 +177,4 @@ For a target repository:
 - You are responsible for reviewing and validating all generated outputs.
 - MCP + host AI usage may transmit repository data to third-party services depending on your host configuration.
 
-Full text: `docs/disclaimer.md`
+Full text: [docs/disclaimer.md](docs/disclaimer.md)
