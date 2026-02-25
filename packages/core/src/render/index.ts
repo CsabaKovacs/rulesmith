@@ -4,7 +4,7 @@ import { evaluateDecisionTree } from "../dtree/index.js";
 import { writeFileSafe } from "../fs/safe.js";
 import { getPack, listPacks } from "../packs/index.js";
 import type { ProjectProfile } from "../profile/schema.js";
-import { buildRulebook } from "./rulebook.js";
+import { buildRulebook, MANDATORY_CONVENTIONS_TITLE } from "./rulebook.js";
 import { scanRepo } from "../scanner/index.js";
 
 export type RenderTargets = {
@@ -34,6 +34,28 @@ export type GeneratedFile = {
   path: string;
   content: string;
 };
+
+function validateStrictMandatoryConventions(files: GeneratedFile[], policy: Required<RenderPolicy>): void {
+  if (policy.strictness === "baseline") return;
+
+  const requiredTargets = new Set([
+    "AGENTS.md",
+    "CLAUDE.md",
+    "GEMINI.md",
+    ".junie/guidelines.md",
+    ".agent/rules/rulesmith.instructions.md",
+    ".github/copilot-instructions.md"
+  ]);
+
+  for (const file of files) {
+    if (!requiredTargets.has(file.path)) continue;
+    if (!file.content.includes(MANDATORY_CONVENTIONS_TITLE)) {
+      throw new Error(
+        `Strict rule generation requires "${MANDATORY_CONVENTIONS_TITLE}" section in ${file.path}, but it was not found.`
+      );
+    }
+  }
+}
 
 function pickAreaSections(
   rulebook: Awaited<ReturnType<typeof buildRulebook>>,
@@ -213,6 +235,8 @@ export async function renderRules(args: {
       content: renderTemplate(pickTemplate(pack.templates, "antigravity-rules.md.hbs"), context)
     });
   }
+
+  validateStrictMandatoryConventions(files, policy);
 
   return files;
 }

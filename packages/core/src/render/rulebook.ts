@@ -234,6 +234,270 @@ async function collectPatternEvidence(args: {
   return { count, evidence };
 }
 
+export const MANDATORY_CONVENTIONS_TITLE = "Mandatory System-Conventions (Strict Enforcement)";
+
+type LanguagePatternDescriptor = {
+  label: string;
+  pattern: RegExp;
+};
+
+const LANGUAGE_PATTERNS: Record<string, LanguagePatternDescriptor[]> = {
+  javascript: [
+    { label: "ES module imports/exports", pattern: /\bimport\b[\s\S]{0,120}\bfrom\b|\bexport\s+(default|const|function|class)\b/ },
+    { label: "Async/await flow", pattern: /\basync\b[\s\S]{0,80}\b=>|\basync\s+function\b|\bawait\b/ },
+    { label: "Component/module decomposition", pattern: /\bfunction\s+[A-Z][A-Za-z0-9_]*\s*\(|\bconst\s+[A-Z][A-Za-z0-9_]*\s*=\s*\(/ }
+  ],
+  typescript: [
+    { label: "Typed interfaces/types", pattern: /\binterface\s+[A-Z][A-Za-z0-9_]*\b|\btype\s+[A-Z][A-Za-z0-9_]*\s*=/ },
+    { label: "Type-aware imports", pattern: /\bimport\s+type\b/ },
+    { label: "Explicit function typing", pattern: /:\s*[A-Za-z0-9_<>,\[\]\s|&?]+\s*(=>|\{)/ }
+  ],
+  php: [
+    { label: "Namespaced class organization", pattern: /^namespace\s+[A-Za-z0-9_\\]+;/m },
+    { label: "Framework request validation", pattern: /extends\s+FormRequest|\$request->validate\s*\(/ },
+    { label: "Transactional write boundaries", pattern: /DB::transaction\s*\(/ }
+  ],
+  python: [
+    { label: "Typed function signatures", pattern: /def\s+[a-zA-Z_][A-Za-z0-9_]*\s*\(.*\)\s*->\s*[^:]+:/ },
+    { label: "Structured data models", pattern: /@dataclass|\bBaseModel\b/ },
+    { label: "Test-oriented structure", pattern: /\bpytest\b|def\s+test_[a-zA-Z0-9_]*\s*\(/ }
+  ],
+  go: [
+    { label: "Error-first control flow", pattern: /if\s+err\s*!=\s*nil/ },
+    { label: "Package boundary conventions", pattern: /^package\s+[a-zA-Z_][A-Za-z0-9_]*$/m },
+    { label: "Go test conventions", pattern: /func\s+Test[A-Za-z0-9_]*\s*\(t\s+\*testing\.T\)/ }
+  ],
+  rust: [
+    { label: "Result/option propagation", pattern: /\bResult<|\bOption<|\?\s*;/ },
+    { label: "Trait/impl boundaries", pattern: /\btrait\s+[A-Za-z0-9_]+|\bimpl\b/ },
+    { label: "Module declarations", pattern: /^mod\s+[a-zA-Z_][A-Za-z0-9_]*;/m }
+  ],
+  java: [
+    { label: "Package hierarchy", pattern: /^package\s+[a-z0-9_.]+;/m },
+    { label: "Annotation-driven architecture", pattern: /@[A-Za-z0-9_]+Controller|@Service|@Repository|@Component/ },
+    { label: "Test annotations", pattern: /@Test\b/ }
+  ],
+  kotlin: [
+    { label: "Data/sealed model conventions", pattern: /\bdata\s+class\b|\bsealed\s+class\b/ },
+    { label: "Coroutine async conventions", pattern: /\bsuspend\s+fun\b|\bCoroutineScope\b|\blaunch\s*\{/ },
+    { label: "DI annotations", pattern: /@Inject|@Module|@Provides/ }
+  ],
+  csharp: [
+    { label: "Dependency injection registration", pattern: /IServiceCollection|AddScoped|AddTransient|AddSingleton/ },
+    { label: "Async Task boundaries", pattern: /\basync\s+Task(<[^>]+>)?\b/ },
+    { label: "Test attributes", pattern: /\[(Fact|Test|TestMethod)\]/ }
+  ],
+  dart: [
+    { label: "Flutter widget composition", pattern: /extends\s+(StatelessWidget|StatefulWidget)/ },
+    { label: "State management conventions", pattern: /\bsetState\s*\(|\bChangeNotifier\b|\bBloc\b|\bRiverpod\b/ },
+    { label: "Future/async flow", pattern: /\bFuture<|\basync\b/ }
+  ],
+  ruby: [
+    { label: "Rails model/controller inheritance", pattern: /class\s+[A-Za-z0-9_:]+\s+<\s+Application(Controller|Record)/ },
+    { label: "Service-layer patterns", pattern: /class\s+[A-Za-z0-9_:]*Service\b|module\s+[A-Za-z0-9_:]*Service\b/ },
+    { label: "RSpec testing conventions", pattern: /\bRSpec\.describe\b|\bdescribe\s+['"]/ }
+  ],
+  swift: [
+    { label: "Protocol-oriented composition", pattern: /\bprotocol\s+[A-Za-z0-9_]+|\bextension\s+[A-Za-z0-9_]+/ },
+    { label: "Result/guard control flow", pattern: /\bguard\s+.+\s+else\b|\bResult<[^>]+>/ },
+    { label: "XCTest conventions", pattern: /XCTestCase|func\s+test[A-Za-z0-9_]*\s*\(/ }
+  ],
+  shell: [
+    { label: "Fail-fast shell safety", pattern: /set\s+-euo\s+pipefail/ },
+    { label: "Function-oriented scripts", pattern: /^[a-zA-Z_][A-Za-z0-9_]*\s*\(\)\s*\{/m },
+    { label: "Checked command execution", pattern: /\|\|\s+exit\s+[0-9]+/ }
+  ],
+  sql: [
+    { label: "Structured migration/query definitions", pattern: /\bCREATE\s+TABLE\b|\bALTER\s+TABLE\b|\bCREATE\s+INDEX\b/i },
+    { label: "Constraint/index usage", pattern: /\bPRIMARY\s+KEY\b|\bFOREIGN\s+KEY\b|\bUNIQUE\b/i },
+    { label: "Explicit transactional blocks", pattern: /\bBEGIN\b[\s\S]{0,200}\bCOMMIT\b/i }
+  ]
+};
+
+const LANGUAGE_EXTENSION_MAP: Record<string, string[]> = {
+  javascript: [".js", ".jsx", ".mjs", ".cjs"],
+  typescript: [".ts", ".tsx", ".mts", ".cts"],
+  php: [".php"],
+  python: [".py"],
+  go: [".go"],
+  rust: [".rs"],
+  java: [".java"],
+  kotlin: [".kt", ".kts"],
+  csharp: [".cs"],
+  dart: [".dart"],
+  ruby: [".rb", ".rake"],
+  swift: [".swift"],
+  shell: [".sh", ".bash", ".zsh"],
+  sql: [".sql"]
+};
+
+const LANGUAGE_TOOLING_HINTS: Record<string, RegExp[]> = {
+  javascript: [/eslint/i, /prettier/i, /package\.json$/i, /vite\.config/i, /webpack/i],
+  typescript: [/tsconfig/i, /eslint/i, /prettier/i, /package\.json$/i],
+  php: [/composer\.json$/i, /phpunit\.xml/i, /pint\.json$/i, /phpcs/i, /phpstan/i, /psalm/i],
+  python: [/pyproject\.toml$/i, /ruff/i, /mypy/i, /pytest/i, /requirements/i],
+  go: [/go\.mod$/i, /golangci/i],
+  rust: [/cargo\.toml$/i, /clippy/i, /rustfmt/i],
+  java: [/pom\.xml$/i, /build\.gradle/i, /checkstyle/i, /spotbugs/i],
+  kotlin: [/build\.gradle/i, /detekt/i, /ktlint/i],
+  csharp: [/\.sln$/i, /\.csproj$/i, /editorconfig/i, /dotnet/i],
+  dart: [/pubspec\.yaml$/i, /analysis_options\.yaml$/i],
+  ruby: [/gemfile$/i, /rubocop/i, /rspec/i],
+  swift: [/package\.swift$/i, /swiftlint/i, /swiftformat/i],
+  shell: [/shellcheck/i, /shfmt/i],
+  sql: [/sqlfluff/i, /liquibase/i, /flyway/i]
+};
+
+function displayLanguageName(language: string): string {
+  const map: Record<string, string> = {
+    javascript: "JavaScript",
+    typescript: "TypeScript",
+    php: "PHP",
+    python: "Python",
+    go: "Go",
+    rust: "Rust",
+    java: "Java",
+    kotlin: "Kotlin",
+    csharp: "C#",
+    dart: "Dart",
+    ruby: "Ruby",
+    swift: "Swift",
+    shell: "Shell",
+    sql: "SQL"
+  };
+  return map[language] ?? language;
+}
+
+function filterFilesForLanguage(files: string[], language: string): string[] {
+  const extensions = LANGUAGE_EXTENSION_MAP[language] ?? [];
+  if (extensions.length === 0) return files;
+  return files.filter((file) => {
+    const lower = file.toLowerCase();
+    return extensions.some((extension) => lower.endsWith(extension));
+  });
+}
+
+function collectLanguageToolingEvidence(language: string, candidates: string[]): string[] {
+  const hints = LANGUAGE_TOOLING_HINTS[language] ?? [];
+  if (hints.length === 0) return [];
+  return dedupe(candidates.filter((candidate) => hints.some((hint) => hint.test(candidate))));
+}
+
+async function buildLanguageMandatoryBullets(args: {
+  repoRoot: string;
+  files: string[];
+  profile: ProjectProfile;
+  hasLaravel: boolean;
+  toolingCandidates: string[];
+}): Promise<string[]> {
+  const strictLanguages = args.profile.languages.filter((language) => language.confidence >= 0.25);
+  const bullets: string[] = [];
+
+  for (const language of strictLanguages) {
+    const languageName = language.name;
+    const displayName = displayLanguageName(languageName);
+    const languageFiles = filterFilesForLanguage(args.files, languageName);
+    const candidateFiles = languageFiles.length > 0 ? languageFiles : args.files;
+    const toolingEvidence = collectLanguageToolingEvidence(languageName, args.toolingCandidates);
+    const standard = standardForLanguage(languageName, args.hasLaravel);
+    const docStandard = documentationStandardForLanguage(languageName);
+
+    bullets.push(
+      withEvidence(
+        `System-found ${displayName} conventions MUST be preserved. New code in ${displayName} MUST NOT DEVIATE from already used repository patterns without explicit migration approval.`,
+        language.evidence
+      )
+    );
+
+    const patterns = LANGUAGE_PATTERNS[languageName] ?? [];
+    let matchedPatterns = 0;
+    for (const descriptor of patterns) {
+      if (matchedPatterns >= 3) break;
+      const patternHit = await collectPatternEvidence({
+        repoRoot: args.repoRoot,
+        files: candidateFiles,
+        pattern: descriptor.pattern,
+        maxEvidence: 4
+      });
+      if (patternHit.count === 0) continue;
+      matchedPatterns += 1;
+      bullets.push(
+        withEvidence(
+          `${displayName}: keep the system-used solution "${descriptor.label}" as mandatory default when extending existing code paths.`,
+          patternHit.evidence
+        )
+      );
+    }
+
+    if (matchedPatterns === 0) {
+      bullets.push(
+        withEvidence(
+          `${displayName}: no high-signal pattern subset was auto-detected in sampling; preserve existing module/file naming and call-flow conventions from touched files before introducing new idioms.`,
+          language.evidence
+        )
+      );
+    }
+
+    if (standard) {
+      const standardBullet = toolingEvidence.length > 0
+        ? `Standards enforcement (${displayName}): ${standard} This MUST be enforced via already-present project tooling/configuration; do not add conflicting style/tool stacks.`
+        : `Standards enforcement (${displayName}): ${standard} Enforce only where compatible with system-found repository patterns. If compatibility is unclear, add UNKNOWN/TODO and do not introduce divergent tooling.`;
+      bullets.push(withEvidence(standardBullet, toolingEvidence.length > 0 ? toolingEvidence : language.evidence));
+    }
+
+    if (docStandard) {
+      bullets.push(
+        withEvidence(
+          `Documentation requirement (${displayName}): ${docStandard} Do not weaken existing documentation rigor in touched public APIs.`,
+          language.evidence
+        )
+      );
+    }
+  }
+
+  return bullets;
+}
+
+async function buildMandatoryConventionsSection(args: {
+  repoRoot: string;
+  files: string[];
+  profile: ProjectProfile;
+  policy: RulebookPolicy;
+  hasLaravel: boolean;
+  toolingCandidates: string[];
+}): Promise<RulebookSection | null> {
+  if (args.policy.strictness === "baseline") return null;
+
+  const bullets: string[] = [
+    "This section is mandatory under strict/very-strict mode. All rules below are enforceable constraints, not optional recommendations.",
+    "When generating code, preserve system-found architecture, naming, layering, and dependency patterns from the repository. Do not introduce alternate implementations unless an explicit migration task exists.",
+    "If multiple patterns exist, prefer the one already used in the touched boundary/module. Do not cross-mix styles within a single feature flow.",
+    "Introducing new frameworks, linters, formatters, or architectural styles is forbidden by default. Any exception requires explicit approval and rollout notes.",
+    "When confidence is insufficient for a convention decision, stop and record UNKNOWN/TODO instead of inventing a new pattern."
+  ];
+
+  const languageBullets = await buildLanguageMandatoryBullets({
+    repoRoot: args.repoRoot,
+    files: args.files,
+    profile: args.profile,
+    hasLaravel: args.hasLaravel,
+    toolingCandidates: args.toolingCandidates
+  });
+
+  if (languageBullets.length > 0) {
+    bullets.push(...languageBullets);
+  } else {
+    bullets.push(
+      "No strong language signals were detected. Still enforce repository-local conventions from touched files and avoid introducing new coding styles."
+    );
+  }
+
+  return {
+    title: MANDATORY_CONVENTIONS_TITLE,
+    bullets
+  };
+}
+
 async function buildLaravelRulebook(profile: ProjectProfile, policy: RulebookPolicy): Promise<Rulebook> {
   const repoRoot = profile.repoRoot;
   const composer = await readJson(repoRoot, "composer.json");
@@ -572,6 +836,42 @@ async function buildLaravelRulebook(profile: ProjectProfile, policy: RulebookPol
     "When assumptions are uncertain, mark UNKNOWN/TODO explicitly instead of inventing undocumented rules."
   ];
   sections.push({ title: "When Adding New Features", bullets: implementationBullets });
+
+  const laravelAnalysisFiles = dedupe([
+    ...routeFiles,
+    ...controllerFiles,
+    ...requestFiles,
+    ...entityFiles,
+    ...migrationFiles,
+    ...viewFiles
+  ]);
+  const laravelToolingCandidates = dedupe([
+    ...profile.signals.configFiles,
+    ...profile.build.evidence,
+    "composer.json",
+    "package.json",
+    ...(hasWebpackMix ? ["webpack.mix.js"] : []),
+    ...(hasViteConfig ? ["vite.config.ts", "vite.config.js", "vite.config.mjs", "vite.config.cjs"] : []),
+    ...(phpunitText ? ["phpunit.xml"] : []),
+    ...(await pathExists(repoRoot, "pint.json") ? ["pint.json"] : []),
+    ...(await pathExists(repoRoot, ".php-cs-fixer.php") ? [".php-cs-fixer.php"] : []),
+    ...(await pathExists(repoRoot, "phpstan.neon") ? ["phpstan.neon"] : []),
+    ...(await pathExists(repoRoot, ".eslintrc") ? [".eslintrc"] : []),
+    ...(await pathExists(repoRoot, ".eslintrc.json") ? [".eslintrc.json"] : []),
+    ...(await pathExists(repoRoot, "eslint.config.js") ? ["eslint.config.js"] : [])
+  ]);
+  const mandatoryConventionsSection = await buildMandatoryConventionsSection({
+    repoRoot,
+    files: laravelAnalysisFiles,
+    profile,
+    policy,
+    hasLaravel: true,
+    toolingCandidates: laravelToolingCandidates
+  });
+  if (mandatoryConventionsSection) {
+    sections.push(mandatoryConventionsSection);
+  }
+
   sections.push({
     title: "Documentation Maintenance",
     bullets: [
@@ -931,6 +1231,24 @@ export async function buildRulebook(profile: ProjectProfile, policy?: Partial<Ru
       "Every non-trivial change proposal should point to concrete evidence files in this repository."
     ]
   });
+
+  const genericToolingCandidates = dedupe([
+    ...profile.signals.configFiles,
+    ...profile.build.evidence,
+    ...toolingConfigs
+  ]);
+  const genericMandatoryConventionsSection = await buildMandatoryConventionsSection({
+    repoRoot,
+    files: sourceFiles,
+    profile,
+    policy: normalizedPolicy,
+    hasLaravel: false,
+    toolingCandidates: genericToolingCandidates
+  });
+  if (genericMandatoryConventionsSection) {
+    sections.push(genericMandatoryConventionsSection);
+  }
+
   sections.push({
     title: "Documentation Maintenance",
     bullets: [

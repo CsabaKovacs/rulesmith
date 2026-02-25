@@ -1,6 +1,7 @@
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { renderRules } from "../src/render/index.js";
+import { MANDATORY_CONVENTIONS_TITLE } from "../src/render/rulebook.js";
 
 const fixturesRoot = path.resolve(process.cwd(), "../../examples/fixtures");
 
@@ -53,6 +54,7 @@ describe("renderer", () => {
     expect(agents?.content).toContain("Language and Framework Practices");
     expect(agents?.content).toContain("Messy/Legacy Code Stabilization");
     expect(agents?.content).toContain("Execution Guardrails");
+    expect(agents?.content).toContain(MANDATORY_CONVENTIONS_TITLE);
   });
 
   it("supports short profiles for copilot and claude outputs", async () => {
@@ -87,5 +89,25 @@ describe("renderer", () => {
     expect(junie?.content).not.toContain("Detailed Conventions");
     expect(gemini?.content).not.toContain("Detailed Conventions");
     expect(antigravity?.content).not.toContain("Detailed Conventions");
+    expect(claude?.content).toContain(MANDATORY_CONVENTIONS_TITLE);
+    expect(copilot?.content).toContain(MANDATORY_CONVENTIONS_TITLE);
+    expect(junie?.content).toContain(MANDATORY_CONVENTIONS_TITLE);
+    expect(gemini?.content).toContain(MANDATORY_CONVENTIONS_TITLE);
+    expect(antigravity?.content).toContain(MANDATORY_CONVENTIONS_TITLE);
+  });
+
+  it("does not include mandatory strict section in baseline mode", async () => {
+    const files = await renderRules({
+      repoPath: path.join(fixturesRoot, "node_ts_min"),
+      pack: "default",
+      targets: { codex: true, copilot: false, claude: false, junie: false, gemini: false, antigravity: false },
+      policy: {
+        strictness: "baseline",
+        standards: "auto"
+      }
+    });
+
+    const agents = files.find((f) => f.path === "AGENTS.md");
+    expect(agents?.content).not.toContain(MANDATORY_CONVENTIONS_TITLE);
   });
 });

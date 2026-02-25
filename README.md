@@ -25,7 +25,7 @@ If your goal is stricter, project-specific, high-quality rules, start with MCP +
 
 ## 1-Minute Quickstart (MCP-first, recommended)
 
-If you are not technical, copy this hard-mode prompt into your AI coding chat. Replace the target path placeholder first.
+If you are not technical, copy this hard-mode prompt into your AI coding chat. Replace every required placeholder first.
 
 ```text
 Execute this task end-to-end, not as advice.
@@ -36,18 +36,38 @@ https://github.com/CsabaKovacs/rulesmith
 Target repository:
 <ABSOLUTE_PATH_TO_TARGET_REPO>
 
+Selected instruction targets (comma-separated, choose from: codex,copilot,claude,junie,gemini,antigravity):
+<TARGETS_CSV>
+
+Maximum targets per batch (recommended 1-2, default 2):
+<TARGET_BATCH_SIZE>
+
 Strict execution requirements:
 - Actually run commands and MCP tools. Do not only describe steps.
 - If a command fails, fix it and continue.
 - Use absolute paths everywhere.
 - Do not stop until scan + generation + apply are complete.
 - Use rulesmith MCP tools for repository analysis and rule generation workflow.
+- Default generation policy unless explicitly overridden: `strictness="very-strict"` and `standards="project-plus-standard"`.
+- Do not call `apply_rules` with an empty `files` array.
+- If `render_rules` response is too large/truncated, reduce batch size and retry (down to 1 target if needed).
+- Do not print full generated file contents to chat; show concise diff summaries and written paths only.
+- Keep token usage controlled: prefer `includeContent=false`, scoped evidence reads, and batched target generation.
+- If any required input is missing/invalid, ask follow-up questions first and STOP. Do not run commands until inputs are complete.
 
 What to do:
 
-1) Install rulesmith
-- Clone the repo to a local absolute path.
-- Run:
+0) Validate required inputs before running anything
+- Confirm `<ABSOLUTE_PATH_TO_TARGET_REPO>` is an absolute path and exists.
+- Confirm `<TARGETS_CSV>` is non-empty and only contains valid values from:
+  codex,copilot,claude,junie,gemini,antigravity
+- If `<TARGET_BATCH_SIZE>` is missing, use 2. Do not exceed 2 unless explicitly requested.
+- If any validation fails, ask exactly what is missing, wait for user answer, then continue from step 1.
+
+1) Install rulesmith (only if not already installed)
+- If rulesmith is already installed locally, reuse the existing absolute path and skip reinstall unless you intentionally update dependencies.
+- If rulesmith is not installed yet, clone the repo to a local absolute path.
+- Run (first install, or when dependencies/tooling changed):
   - pnpm install
   - pnpm -r build
   - pnpm -r test
@@ -61,24 +81,29 @@ What to do:
 3) Run full analysis on target repo using MCP
 - scan_repo
 - build_evidence_bundle with:
-  focus="generic", maxFiles=2000, includeContent=false
+  focus="generic", maxFiles=1200, includeContent=false
 - Expand evidence with list_files/search/read_files for key areas before finalizing rules.
 
-4) Generate and apply rule files
-- render_rules with targets:
-  { codex: true, copilot: true, claude: true, junie: true, gemini: true, antigravity: true }
-- diff_rules and show the diff summary.
-- If diff is valid, apply_rules with mode="safe".
+4) Generate and apply rule files with target batching
+- Build batches from `<TARGETS_CSV>` using `<TARGET_BATCH_SIZE>` (recommended 1-2 targets per batch).
+- For each batch, run:
+  - render_rules with batch targets and policy:
+    { strictness: "very-strict", standards: "project-plus-standard" }
+  - diff_rules for the returned files and show only concise diff summary.
+  - if diff is valid and `files` is non-empty, apply_rules with mode="safe".
+- If batch render still overloads/truncates:
+  - retry with smaller batch size (down to 1 target),
+  - continue until every selected target is processed.
+- If MCP generation repeatedly truncates, switch render/diff/apply to rulesmith CLI with the same policy and target batches.
 
-5) Validate outputs in target repo
-Confirm these exist (if target supports them):
-- AGENTS.md
-- CLAUDE.md
-- GEMINI.md
-- .github/copilot-instructions.md
-- .github/instructions/*.instructions.md (optional)
-- .junie/guidelines.md
-- .agent/rules/rulesmith.instructions.md
+5) Validate outputs in target repo for selected targets only
+Use this mapping:
+- codex -> AGENTS.md
+- claude -> CLAUDE.md
+- gemini -> GEMINI.md
+- copilot -> .github/copilot-instructions.md (and optional .github/instructions/*.instructions.md)
+- junie -> .junie/guidelines.md
+- antigravity -> .agent/rules/rulesmith.instructions.md
 
 6) Final report (required)
 Return a concise report with:
@@ -86,13 +111,27 @@ Return a concise report with:
 - MCP registration status
 - Commands executed
 - MCP tools executed
+- Batch plan used (targets and batch size)
 - Files generated/written
 - Any warnings or skipped steps
 ```
 
+### Recommended Evidence Budget (speed vs quality)
+
+Use this to avoid long runs and token burn:
+- Fast pass: `maxFiles=400-600` (good for first draft / small repos)
+- Balanced pass (recommended): `maxFiles=800-1200` (best default for most repos)
+- Deep pass: `maxFiles=1500-2000` (only if conventions are unclear after balanced pass)
+
+Escalation rule:
+- Start with balanced.
+- Increase only if key sections remain `UNKNOWN/TODO` after evidence expansion.
+- Do not jump to deep pass by default.
+
 If you prefer manual terminal commands, use this block:
 
 ```bash
+# If rulesmith is already installed locally, reuse that absolute path and skip clone/install.
 git clone git@github.com:CsabaKovacs/rulesmith.git rulesmith
 cd rulesmith
 pnpm install && pnpm -r build
@@ -109,20 +148,29 @@ After opening the repo, run this in the Codex chat (copy/paste):
 ```text
 Use rulesmith MCP end-to-end on the currently opened repository.
 
+Required inputs:
+- TARGETS_CSV = <comma-separated targets from codex,copilot,claude,junie,gemini,antigravity>
+- TARGET_BATCH_SIZE = <recommended 1-2, default 2>
+- POLICY = { strictness: "very-strict", standards: "project-plus-standard" }
+
 Run:
 1) scan_repo
-2) build_evidence_bundle with focus="generic", maxFiles=2000, includeContent=false
+2) build_evidence_bundle with focus="generic", maxFiles=1200, includeContent=false
 3) expand evidence with list_files/search/read_files on key areas
-4) render_rules with targets { codex: true, copilot: true, claude: true, junie: true, gemini: true, antigravity: true }
-5) diff_rules
+4) split TARGETS_CSV into batches of TARGET_BATCH_SIZE (max 2 recommended)
+5) for each batch: render_rules -> diff_rules -> apply_rules(mode="safe")
+6) if render payload is too large, retry with smaller batch size (down to 1)
+7) never run apply_rules with empty files array
 
 Then summarize:
 - detected stack/frameworks with confidence
 - key build/test/lint/format commands with evidence
 - guardrails/forbidden paths
-- exact files that would be generated
+- batch-by-batch diff summary and written files
+- warnings/retries (if any)
 
-If the diff looks valid, run apply_rules in safe mode and report written files.
+Do not print full generated file contents; keep response concise to avoid token overload.
+If required inputs are missing, ask follow-up questions first and do not run tools until inputs are complete.
 ```
 
 If you use Claude/Junie/Gemini/Antigravity instead of Codex, ask that host chat to run the same sequence.
@@ -131,7 +179,7 @@ Then the host should run this sequence:
 - `scan_repo`
 - `build_evidence_bundle` (usually `includeContent=false`)
 - expand with `list_files` / `search` / `read_files`
-- generate and review diffs
+- generate in small target batches (`strictness=very-strict` by default) and review diffs
 - apply when valid
 
 ## Why this is useful
@@ -314,11 +362,24 @@ Example prompt to paste in chat:
 
 ```text
 Use rulesmith MCP on this repository.
+
+Required inputs:
+- TARGETS_CSV = <comma-separated targets from codex,copilot,claude,junie,gemini,antigravity>
+- TARGET_BATCH_SIZE = <recommended 1-2, default 2>
+- POLICY = { strictness: "very-strict", standards: "project-plus-standard" }
+
+Rules:
+- If any required input is missing, ask follow-up questions and STOP before running tools.
+- Do not print full generated file contents; show diff summaries and written files only.
+- Never call apply_rules with empty files array.
+
+Run:
 1) scan_repo
-2) build_evidence_bundle with focus="generic", maxFiles=2000, includeContent=false
-3) expand evidence with list_files/search/read_files
-4) generate AGENTS.md, CLAUDE.md, GEMINI.md, .junie/guidelines.md, .agent/rules/rulesmith.instructions.md, and Copilot instruction files
-5) show diff first, then apply
+2) build_evidence_bundle with focus="generic", maxFiles=1200, includeContent=false
+3) expand evidence with list_files/search/read_files on key areas only
+4) split TARGETS_CSV into batches of TARGET_BATCH_SIZE (max 2 recommended)
+5) for each batch: render_rules -> diff_rules -> apply_rules(mode="safe")
+6) if payload is too large, retry with smaller batch size (down to 1)
 ```
 
 ## 2) Codex IDE extension (VS Code)

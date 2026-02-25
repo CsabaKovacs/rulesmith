@@ -12,6 +12,7 @@ Rules:
 - Every architectural claim must cite evidence file paths.
 - Distinguish observed facts from inferred conventions.
 - If confidence is low, write explicit UNKNOWN/TODO entries.
+- In strict/very-strict mode, generated rules MUST include a mandatory section that enforces system-found conventions and language standards only where they do not conflict with already-applied repository patterns.
 
 Output goal:
 - Generate AGENTS.md with enforceable instructions tied to evidence.

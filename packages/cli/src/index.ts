@@ -157,6 +157,8 @@ function buildAiAuthorPrompt(args: {
     "- If the codebase is NOT a mixed/salad legacy system by evidence, include language-standard and best-practice sections in generated rule files (for detected languages/frameworks).",
     "- Examples of expected language standards when applicable: PHP/Laravel (PSR-12, Pint/PHPCS + framework conventions), JS/TS (ESLint, Prettier, strict TS where used), Python (Black/Ruff), Go (gofmt/goimports), Dart/Flutter (dart format + flutter analyze).",
     "- Include language-appropriate documentation standards (PHPDoc, TSDoc/JSDoc, docstrings, Go exported comments, etc.) for public interfaces and non-obvious logic.",
+    "- If strictness is strict/very-strict, include a dedicated 'Mandatory System-Conventions (Strict Enforcement)' section that forces language-specific system-found patterns with evidence.",
+    "- In that mandatory section, enforce language standards only when they do not conflict with already-applied repository conventions; otherwise preserve repository convention and mark UNKNOWN/TODO.",
     "- Enforce DRY while avoiding premature abstraction: remove duplication when repetition is proven, do not introduce speculative generic layers.",
     "- Enforce file-size and cohesion discipline: avoid mega files/classes; keep responsibilities bounded and code human-readable.",
     "- Include explicit DO/DON'T quality gates so generated rule files are enforceable, not just descriptive.",
