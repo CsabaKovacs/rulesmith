@@ -156,18 +156,30 @@ Targets:
 <TARGETS_CSV> (allowed: codex,copilot,claude,junie,gemini,antigravity)
 
 What to do:
-1) Ask me short questions for language(s), framework(s), package manager/tooling, and install/build/test/lint/format/dev commands.
-2) Build a seed object from my answers.
-3) Run bootstrap_rules with strictness="very-strict" and standards="project-plus-standard" (baseline generation).
-4) Run diff_rules for baseline and summarize shortly.
-5) If baseline diff is valid, run apply_rules in safe mode.
-6) Run bootstrap_specialization_prompt using the same seed/targets/policy.
-7) Use the returned prompt to perform AI specialization pass on the just-generated rule files:
+1) Install rulesmith (only if not already installed)
+- If rulesmith is already installed locally, reuse the existing absolute path and skip reinstall unless you intentionally update dependencies.
+- If rulesmith is not installed yet, clone the repo to a local absolute path.
+- Run (first install, or when dependencies/tooling changed):
+  - pnpm install
+  - pnpm -r build
+  - pnpm -r test
+2) Register MCP server in this environment
+- Set RULESMITH_HOME to the cloned rulesmith path.
+- Register rulesmith MCP server using:
+  node "$RULESMITH_HOME/packages/mcp/dist/server.js"
+- Verify MCP registration is active before continuing.
+3) Ask me short questions for language(s), framework(s), package manager/tooling, and install/build/test/lint/format/dev commands.
+4) Build a seed object from my answers.
+5) Run bootstrap_rules with strictness="very-strict" and standards="project-plus-standard" (baseline generation).
+6) Run diff_rules for baseline and summarize shortly.
+7) If baseline diff is valid, run apply_rules in safe mode.
+8) Run bootstrap_specialization_prompt using the same seed/targets/policy.
+9) Use the returned prompt to perform AI specialization pass on the just-generated rule files:
    - enrich with language/framework standards and best practices,
    - add strict quality gates (testing/security/performance/DoD),
    - keep DRY/no-premature-abstraction and file cohesion rules.
-8) Show diff for the specialization pass, then apply in safe mode if valid.
-9) Return final generated files, written files, and any UNKNOWN/TODO.
+10) Show diff for the specialization pass, then apply in safe mode if valid.
+11) Return final generated files, written files, and any UNKNOWN/TODO.
 ```
 
 Recommended two-step quality flow for new projects:
