@@ -47,6 +47,27 @@ For greenfield repositories (no meaningful code yet), use:
 - `bootstrap_specialization_prompt` to generate the second-pass AI prompt that enriches baseline files with strict standards/best practices
 - then `diff_rules` -> `apply_rules`
 
+Greenfield copy/paste prompt:
+
+```text
+Use rulesmith MCP to bootstrap a NEW project (no repository scan).
+
+Target repository:
+<ABSOLUTE_PATH_TO_NEW_REPO>
+
+Targets:
+<TARGETS_CSV> (allowed: codex,copilot,claude,junie,gemini,antigravity)
+
+1) Ask short questions for language(s), framework(s), and core commands (install/build/test/lint/format/dev).
+2) Build a seed object from the answers.
+3) Run bootstrap_rules with strictness="very-strict" and standards="project-plus-standard".
+4) Run diff_rules; if valid run apply_rules in safe mode.
+5) Run bootstrap_specialization_prompt with the same seed/targets/policy.
+6) Use the returned prompt to AI-specialize the generated rule files (standards, best practices, strict quality gates).
+7) Show specialization diff; if valid run apply_rules in safe mode.
+8) Return final generated files, written files, and UNKNOWN/TODO.
+```
+
 ## Example prompt (copy/paste)
 
 ```text

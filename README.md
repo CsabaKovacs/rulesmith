@@ -158,10 +158,16 @@ Targets:
 What to do:
 1) Ask me short questions for language(s), framework(s), package manager/tooling, and install/build/test/lint/format/dev commands.
 2) Build a seed object from my answers.
-3) Run bootstrap_rules with strictness="very-strict" and standards="project-plus-standard".
-4) Run diff_rules and summarize.
-5) If valid, run apply_rules in safe mode.
-6) Return generated files and written files.
+3) Run bootstrap_rules with strictness="very-strict" and standards="project-plus-standard" (baseline generation).
+4) Run diff_rules for baseline and summarize shortly.
+5) If baseline diff is valid, run apply_rules in safe mode.
+6) Run bootstrap_specialization_prompt using the same seed/targets/policy.
+7) Use the returned prompt to perform AI specialization pass on the just-generated rule files:
+   - enrich with language/framework standards and best practices,
+   - add strict quality gates (testing/security/performance/DoD),
+   - keep DRY/no-premature-abstraction and file cohesion rules.
+8) Show diff for the specialization pass, then apply in safe mode if valid.
+9) Return final generated files, written files, and any UNKNOWN/TODO.
 ```
 
 Recommended two-step quality flow for new projects:
