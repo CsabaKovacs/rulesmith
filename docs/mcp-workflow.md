@@ -73,7 +73,21 @@ Targets:
 7) Run bootstrap_specialization_prompt with the same seed/targets/policy.
 8) Use the returned prompt to AI-specialize the generated rule files (standards, best practices, strict quality gates).
 9) Show specialization diff; if valid run apply_rules in safe mode.
-10) Return final generated files, written files, and UNKNOWN/TODO.
+10) Validate outputs in target repo for selected targets only:
+- codex -> AGENTS.md
+- claude -> CLAUDE.md
+- gemini -> GEMINI.md
+- copilot -> .github/copilot-instructions.md (and optional .github/instructions/*.instructions.md)
+- junie -> .junie/guidelines.md
+- antigravity -> .agent/rules/rulesmith.instructions.md
+11) Return a short final report with:
+- rulesmith install path
+- MCP registration status
+- seed summary (languages/frameworks/commands)
+- MCP tools executed
+- generated files
+- written files
+- UNKNOWN/TODO items
 ```
 
 ## Example prompt (copy/paste)

@@ -179,7 +179,21 @@ What to do:
    - add strict quality gates (testing/security/performance/DoD),
    - keep DRY/no-premature-abstraction and file cohesion rules.
 10) Show diff for the specialization pass, then apply in safe mode if valid.
-11) Return final generated files, written files, and any UNKNOWN/TODO.
+11) Validate outputs in target repo for selected targets only:
+- codex -> AGENTS.md
+- claude -> CLAUDE.md
+- gemini -> GEMINI.md
+- copilot -> .github/copilot-instructions.md (and optional .github/instructions/*.instructions.md)
+- junie -> .junie/guidelines.md
+- antigravity -> .agent/rules/rulesmith.instructions.md
+12) Return a short final report with:
+- rulesmith install path
+- MCP registration status
+- seed summary (languages/frameworks/commands)
+- MCP tools executed
+- generated files
+- written files
+- UNKNOWN/TODO items
 ```
 
 Recommended two-step quality flow for new projects:
