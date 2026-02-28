@@ -21,6 +21,7 @@ This is a **stdio MCP server**. Logs go to `stderr` only.
 - `sample_repo`
 - `build_evidence_bundle`
 - `render_rules`
+- `bootstrap_rules`
 - `diff_rules`
 - `apply_rules`
 - `list_packs`
@@ -39,6 +40,10 @@ Run the following sequence in your host AI chat:
 3) expand evidence with `list_files` / `search` / `read_files`
 4) generate in small target batches (`strictness=very-strict` by default)
 5) `render_rules` -> `diff_rules` -> `apply_rules` (only when valid)
+
+For greenfield repositories (no meaningful code yet), use:
+- `bootstrap_rules` with a seed object (`languages`, `frameworks`, optional commands/guardrails)
+- then `diff_rules` -> `apply_rules`
 
 ## Example prompt (copy/paste)
 

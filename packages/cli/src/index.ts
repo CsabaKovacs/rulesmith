@@ -6,6 +6,7 @@ import type { Interface as ReadlineInterface } from "node:readline/promises";
 import { Command } from "commander";
 import {
   applyRules,
+  bootstrapRules,
   buildEvidenceBundle,
   diffRules,
   getPack,
@@ -27,6 +28,14 @@ type RenderTargets = {
 };
 type BundleFocus = "laravel" | "generic";
 type ApplyMode = "none" | "safe" | "force";
+
+function parseCsv(value: string | undefined): string[] {
+  if (!value) return [];
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
 
 function resolveRepoPath(repoPath?: string): string {
   return path.resolve(repoPath ?? process.cwd());
@@ -537,6 +546,119 @@ async function main() {
       const outPath = path.resolve(options.out);
       await writeJson(outPath, bundle);
       process.stdout.write(`${outPath}\n`);
+    });
+
+  program
+    .command("bootstrap")
+    .argument("[repoPath]")
+    .option("--pack <pack>", "pack name", "default")
+    .option("--overrides <overrides>", "override directory")
+    .option("--targets <targets>", "codex,copilot,claude,junie,gemini,antigravity", "codex,copilot,claude,junie,gemini,antigravity")
+    .option("--strictness <strictness>", "baseline|strict|very-strict", "strict")
+    .option("--standards <standards>", "auto|project-only|project-plus-standard", "project-plus-standard")
+    .option("--copilot-profile <copilotProfile>", "short|strict", "strict")
+    .option("--claude-profile <claudeProfile>", "short|strict", "strict")
+    .option("--junie-profile <junieProfile>", "short|strict", "strict")
+    .option("--gemini-profile <geminiProfile>", "short|strict", "strict")
+    .option("--antigravity-profile <antigravityProfile>", "short|strict", "strict")
+    .option("--languages <languages>", "comma separated, e.g. typescript,php")
+    .option("--frameworks <frameworks>", "comma separated, e.g. laravel,vue")
+    .option("--config-files <configFiles>", "comma separated signal files")
+    .option("--ci-files <ciFiles>", "comma separated CI files")
+    .option("--entrypoints <entrypoints>", "comma separated entrypoints")
+    .option("--install <install>", "install command")
+    .option("--build <build>", "build command")
+    .option("--test <test>", "test command")
+    .option("--lint <lint>", "lint command")
+    .option("--format <format>", "format command")
+    .option("--dev <dev>", "dev command")
+    .option("--build-evidence <buildEvidence>", "comma separated evidence references")
+    .option("--monorepo", "set monorepo=true")
+    .option("--workspaces <workspaces>", "comma separated workspaces")
+    .option("--generated-dirs <generatedDirs>", "comma separated generated dirs")
+    .option("--vendor-dirs <vendorDirs>", "comma separated vendor dirs")
+    .option("--forbidden-paths <forbiddenPaths>", "comma separated forbidden paths")
+    .option("--guardrail-notes <guardrailNotes>", "comma separated guardrail notes")
+    .option("--mode <mode>", "none|safe|force", "none")
+    .action(async (repoPathArg, options) => {
+      const repoPath = resolveRepoPath(repoPathArg);
+      const mode = parseApplyMode(options.mode) ?? "none";
+
+      const languages = parseCsv(options.languages).map((name) => ({ name, evidence: ["bootstrap:cli"] }));
+      const frameworks = parseCsv(options.frameworks).map((name) => ({ name, evidence: ["bootstrap:cli"] }));
+      if (languages.length === 0 && frameworks.length === 0) {
+        throw new Error("bootstrap requires at least one language or framework.");
+      }
+
+      const files = await bootstrapRules({
+        repoPath,
+        pack: options.pack,
+        overrides: options.overrides,
+        seed: {
+          signals: {
+            configFiles: parseCsv(options.configFiles),
+            ciFiles: parseCsv(options.ciFiles),
+            entrypoints: parseCsv(options.entrypoints)
+          },
+          languages,
+          frameworks,
+          build: {
+            commands: {
+              install: options.install,
+              build: options.build,
+              test: options.test,
+              lint: options.lint,
+              format: options.format,
+              dev: options.dev
+            },
+            evidence: parseCsv(options.buildEvidence)
+          },
+          structure: {
+            monorepo: Boolean(options.monorepo),
+            workspaces: parseCsv(options.workspaces),
+            generatedDirs: parseCsv(options.generatedDirs),
+            vendorDirs: parseCsv(options.vendorDirs)
+          },
+          guardrails: {
+            forbiddenPaths: parseCsv(options.forbiddenPaths),
+            notes: parseCsv(options.guardrailNotes)
+          }
+        },
+        targets: parseTargets(options.targets),
+        policy: policyFromFlags({
+          strictness: options.strictness,
+          standards: options.standards,
+          copilotProfile: options.copilotProfile,
+          claudeProfile: options.claudeProfile,
+          junieProfile: options.junieProfile,
+          geminiProfile: options.geminiProfile,
+          antigravityProfile: options.antigravityProfile
+        })
+      });
+
+      const patch = await diffRules({ repoPath, files });
+      const result =
+        mode === "none"
+          ? { written: [] }
+          : await applyRules({
+              repoPath,
+              files,
+              mode
+            });
+
+      process.stdout.write(
+        `${JSON.stringify(
+          {
+            repoPath,
+            mode,
+            generated: files.map((file) => file.path),
+            written: result.written,
+            diffPreview: patch.split("\n").slice(0, 60).join("\n")
+          },
+          null,
+          2
+        )}\n`
+      );
     });
 
   program

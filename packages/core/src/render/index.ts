@@ -35,6 +35,43 @@ export type GeneratedFile = {
   content: string;
 };
 
+export type BootstrapWeightedInput = {
+  name: string;
+  confidence?: number;
+  evidence?: string[];
+};
+
+export type BootstrapSeed = {
+  signals?: {
+    configFiles?: string[];
+    ciFiles?: string[];
+    entrypoints?: string[];
+  };
+  languages?: BootstrapWeightedInput[];
+  frameworks?: BootstrapWeightedInput[];
+  build?: {
+    commands?: {
+      install?: string;
+      build?: string;
+      test?: string;
+      lint?: string;
+      format?: string;
+      dev?: string;
+    };
+    evidence?: string[];
+  };
+  structure?: {
+    monorepo?: boolean;
+    workspaces?: string[];
+    generatedDirs?: string[];
+    vendorDirs?: string[];
+  };
+  guardrails?: {
+    forbiddenPaths?: string[];
+    notes?: string[];
+  };
+};
+
 function validateStrictMandatoryConventions(files: GeneratedFile[], policy: Required<RenderPolicy>): void {
   if (policy.strictness === "baseline") return;
 
@@ -131,16 +168,77 @@ function toTemplateContext(
   };
 }
 
-export async function renderRules(args: {
-  repoPath: string;
+function normalizeWeightedInput(items: BootstrapWeightedInput[] | undefined): Array<{ name: string; confidence: number; evidence: string[] }> {
+  if (!items || items.length === 0) return [];
+  return items
+    .map((item) => {
+      const confidence = typeof item.confidence === "number" ? Math.min(1, Math.max(0, item.confidence)) : 0.9;
+      const evidence = item.evidence && item.evidence.length > 0 ? item.evidence : ["bootstrap:seed"];
+      return {
+        name: item.name.trim().toLowerCase(),
+        confidence: Number(confidence.toFixed(2)),
+        evidence
+      };
+    })
+    .filter((item) => item.name.length > 0);
+}
+
+export function profileFromBootstrapSeed(args: { repoPath: string; seed: BootstrapSeed }): ProjectProfile {
+  const now = new Date().toISOString();
+  const configFiles = [
+    ...new Set([
+      ...(args.seed.signals?.configFiles ?? []),
+      ...((args.seed.build?.evidence ?? []).map((item) => item.split("#")[0] ?? item))
+    ])
+  ];
+  const ciFiles = [...new Set(args.seed.signals?.ciFiles ?? [])];
+  const entrypoints = [...new Set(args.seed.signals?.entrypoints ?? [])];
+
+  const generatedDirs = [...new Set(args.seed.structure?.generatedDirs ?? ["dist", "build", "coverage", ".dart_tool"])];
+  const vendorDirs = [...new Set(args.seed.structure?.vendorDirs ?? ["node_modules", "vendor"])];
+  const forbiddenPaths = [...new Set(args.seed.guardrails?.forbiddenPaths ?? [".git", ...vendorDirs])];
+
+  return {
+    repoRoot: args.repoPath,
+    signals: {
+      configFiles,
+      ciFiles,
+      entrypoints
+    },
+    languages: normalizeWeightedInput(args.seed.languages),
+    frameworks: normalizeWeightedInput(args.seed.frameworks),
+    build: {
+      commands: args.seed.build?.commands ?? {},
+      evidence: args.seed.build?.evidence ?? ["bootstrap:seed"]
+    },
+    structure: {
+      monorepo: args.seed.structure?.monorepo ?? false,
+      workspaces: args.seed.structure?.workspaces,
+      generatedDirs,
+      vendorDirs
+    },
+    guardrails: {
+      forbiddenPaths,
+      notes: [
+        "Profile bootstrapped from user-provided seed (no repository scan).",
+        ...(args.seed.guardrails?.notes ?? [])
+      ]
+    },
+    meta: {
+      scannedAt: now
+    }
+  };
+}
+
+async function renderRulesForProfile(args: {
+  profile: ProjectProfile;
   pack?: string;
   overrides?: string;
   targets: RenderTargets;
   policy?: RenderPolicy;
 }): Promise<GeneratedFile[]> {
-  const profile = await scanRepo(args.repoPath);
   const pack = await getPack({ pack: args.pack, overrides: args.overrides });
-  const decision = evaluateDecisionTree(pack.decisionTree, profile);
+  const decision = evaluateDecisionTree(pack.decisionTree, args.profile);
   const policy: Required<RenderPolicy> = {
     strictness: args.policy?.strictness ?? "strict",
     standards: args.policy?.standards ?? "auto",
@@ -161,14 +259,14 @@ export async function renderRules(args: {
   };
 
   const unknowns: string[] = [];
-  if (!profile.build.commands.test) unknowns.push("Test command is not confidently detected.");
-  if (!profile.build.commands.lint) unknowns.push("Lint command is not confidently detected.");
-  if (!profile.build.commands.format) unknowns.push("Format command is not confidently detected.");
-  if (!profile.build.commands.build) unknowns.push("Build command is not confidently detected.");
+  if (!args.profile.build.commands.test) unknowns.push("Test command is not confidently detected.");
+  if (!args.profile.build.commands.lint) unknowns.push("Lint command is not confidently detected.");
+  if (!args.profile.build.commands.format) unknowns.push("Format command is not confidently detected.");
+  if (!args.profile.build.commands.build) unknowns.push("Build command is not confidently detected.");
 
-  const rulebook = await buildRulebook(profile, policy);
+  const rulebook = await buildRulebook(args.profile, policy);
 
-  const context = toTemplateContext(profile, {
+  const context = toTemplateContext(args.profile, {
     unknowns,
     snippets: decision.snippets,
     areas: decision.areaInstructions,
@@ -239,6 +337,41 @@ export async function renderRules(args: {
   validateStrictMandatoryConventions(files, policy);
 
   return files;
+}
+
+export async function renderRules(args: {
+  repoPath: string;
+  pack?: string;
+  overrides?: string;
+  targets: RenderTargets;
+  policy?: RenderPolicy;
+}): Promise<GeneratedFile[]> {
+  const profile = await scanRepo(args.repoPath);
+  return renderRulesForProfile({
+    profile,
+    pack: args.pack,
+    overrides: args.overrides,
+    targets: args.targets,
+    policy: args.policy
+  });
+}
+
+export async function bootstrapRules(args: {
+  repoPath: string;
+  seed: BootstrapSeed;
+  pack?: string;
+  overrides?: string;
+  targets: RenderTargets;
+  policy?: RenderPolicy;
+}): Promise<GeneratedFile[]> {
+  const profile = profileFromBootstrapSeed({ repoPath: args.repoPath, seed: args.seed });
+  return renderRulesForProfile({
+    profile,
+    pack: args.pack,
+    overrides: args.overrides,
+    targets: args.targets,
+    policy: args.policy
+  });
 }
 
 export async function diffRules(args: {

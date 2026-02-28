@@ -1,6 +1,6 @@
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { renderRules } from "../src/render/index.js";
+import { bootstrapRules, renderRules } from "../src/render/index.js";
 import { MANDATORY_CONVENTIONS_TITLE } from "../src/render/rulebook.js";
 
 const fixturesRoot = path.resolve(process.cwd(), "../../examples/fixtures");
@@ -109,5 +109,32 @@ describe("renderer", () => {
 
     const agents = files.find((f) => f.path === "AGENTS.md");
     expect(agents?.content).not.toContain(MANDATORY_CONVENTIONS_TITLE);
+  });
+
+  it("renders from bootstrap seed without repository scan", async () => {
+    const files = await bootstrapRules({
+      repoPath: path.join(fixturesRoot, "node_ts_min"),
+      pack: "default",
+      seed: {
+        languages: [{ name: "typescript" }],
+        frameworks: [{ name: "node" }],
+        build: {
+          commands: {
+            install: "pnpm install",
+            test: "pnpm test"
+          },
+          evidence: ["bootstrap:seed"]
+        },
+        guardrails: {
+          forbiddenPaths: [".git", "node_modules"]
+        }
+      },
+      targets: { codex: true, copilot: false, claude: false, junie: false, gemini: true, antigravity: false }
+    });
+
+    const agents = files.find((f) => f.path === "AGENTS.md");
+    const gemini = files.find((f) => f.path === "GEMINI.md");
+    expect(agents?.content).toContain("bootstrap");
+    expect(gemini?.content).toContain("Gemini CLI Rulebook");
   });
 });

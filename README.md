@@ -20,10 +20,13 @@ It does three things really well:
 
 - **MCP + host AI mode (recommended):** run `rulesmith` as MCP inside Codex/Claude/Junie/Gemini/Antigravity. The host AI reads evidence and writes project-specific rule files with reasoning.
 - **CLI template mode (secondary/fallback):** run `rulesmith` from terminal (`start`/`render`/`apply`). This mode does **not** call any AI model; it renders deterministic output from scanner + templates.
+- **Bootstrap mode (new project):** generate rule files from user-provided seed data (languages/frameworks/commands) when there is no codebase to scan yet.
 
 If your goal is stricter, project-specific, high-quality rules, start with MCP + host AI.
 
-## Quickstart (MCP-first, recommended)
+## Existing Projects (Scan + Evidence)
+
+Use this flow when the repository already has code and you want evidence-backed rules from real files.
 
 If you are not technical, copy this hard-mode prompt into your AI coding chat. Replace every required placeholder first.
 
@@ -136,6 +139,43 @@ Full workflow details, evidence budget, and tool reference:
 
 Host-specific setup guides:
 - [docs/integrations/README.md](docs/integrations/README.md)
+
+## New Projects (Bootstrap)
+
+Use this flow when the repository is new/empty and you want initial rules from your chosen stack.
+
+Simple MCP prompt (copy/paste):
+
+```text
+Use rulesmith MCP to bootstrap a new project (no repository scan).
+
+Target repository:
+<ABSOLUTE_PATH_TO_NEW_REPO>
+
+Targets:
+<TARGETS_CSV> (allowed: codex,copilot,claude,junie,gemini,antigravity)
+
+What to do:
+1) Ask me short questions for language(s), framework(s), package manager/tooling, and install/build/test/lint/format/dev commands.
+2) Build a seed object from my answers.
+3) Run bootstrap_rules with strictness="very-strict" and standards="project-plus-standard".
+4) Run diff_rules and summarize.
+5) If valid, run apply_rules in safe mode.
+6) Return generated files and written files.
+```
+
+When you do not have an existing codebase yet, create initial rules from a seed:
+
+```bash
+node packages/cli/dist/index.js bootstrap /absolute/path/to/new-repo \
+  --languages typescript \
+  --frameworks node \
+  --targets codex,claude,gemini \
+  --install "pnpm install" \
+  --test "pnpm -r test" \
+  --lint "pnpm -r lint" \
+  --mode safe
+```
 
 ## What can be generated
 

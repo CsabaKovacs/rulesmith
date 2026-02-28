@@ -1,6 +1,7 @@
 import { readFileSafe, listFilesSafe } from "@rulesmith/core";
 import {
   applyRules,
+  bootstrapRules,
   buildEvidenceBundle,
   diffRules,
   getPack,
@@ -153,6 +154,106 @@ async function start() {
 
       return bundle;
     }
+  );
+
+  registerTool(
+    "bootstrap_rules",
+    {
+      repoPath: z.string().optional(),
+      pack: z.string().optional(),
+      overrides: z.string().optional(),
+      seed: z.object({
+        signals: z
+          .object({
+            configFiles: z.array(z.string()).optional(),
+            ciFiles: z.array(z.string()).optional(),
+            entrypoints: z.array(z.string()).optional()
+          })
+          .optional(),
+        languages: z
+          .array(
+            z.object({
+              name: z.string(),
+              confidence: z.number().min(0).max(1).optional(),
+              evidence: z.array(z.string()).optional()
+            })
+          )
+          .optional(),
+        frameworks: z
+          .array(
+            z.object({
+              name: z.string(),
+              confidence: z.number().min(0).max(1).optional(),
+              evidence: z.array(z.string()).optional()
+            })
+          )
+          .optional(),
+        build: z
+          .object({
+            commands: z
+              .object({
+                install: z.string().optional(),
+                build: z.string().optional(),
+                test: z.string().optional(),
+                lint: z.string().optional(),
+                format: z.string().optional(),
+                dev: z.string().optional()
+              })
+              .optional(),
+            evidence: z.array(z.string()).optional()
+          })
+          .optional(),
+        structure: z
+          .object({
+            monorepo: z.boolean().optional(),
+            workspaces: z.array(z.string()).optional(),
+            generatedDirs: z.array(z.string()).optional(),
+            vendorDirs: z.array(z.string()).optional()
+          })
+          .optional(),
+        guardrails: z
+          .object({
+            forbiddenPaths: z.array(z.string()).optional(),
+            notes: z.array(z.string()).optional()
+          })
+          .optional()
+      }),
+      targets: z.object({
+        codex: z.boolean().optional(),
+        copilot: z.boolean().optional(),
+        claude: z.boolean().optional(),
+        junie: z.boolean().optional(),
+        gemini: z.boolean().optional(),
+        antigravity: z.boolean().optional()
+      }),
+      policy: z
+        .object({
+          strictness: z.enum(["baseline", "strict", "very-strict"]).optional(),
+          standards: z.enum(["auto", "project-only", "project-plus-standard"]).optional(),
+          copilotProfile: z.enum(["short", "strict"]).optional(),
+          claudeProfile: z.enum(["short", "strict"]).optional(),
+          junieProfile: z.enum(["short", "strict"]).optional(),
+          geminiProfile: z.enum(["short", "strict"]).optional(),
+          antigravityProfile: z.enum(["short", "strict"]).optional()
+        })
+        .optional()
+    },
+    async ({ repoPath, pack, overrides, seed, targets, policy }) =>
+      bootstrapRules({
+        repoPath: path.resolve(repoPath ?? process.cwd()),
+        pack,
+        overrides,
+        seed,
+        targets: {
+          codex: targets.codex ?? false,
+          copilot: targets.copilot ?? false,
+          claude: targets.claude ?? false,
+          junie: targets.junie ?? false,
+          gemini: targets.gemini ?? false,
+          antigravity: targets.antigravity ?? false
+        },
+        policy
+      })
   );
 
   registerTool(
