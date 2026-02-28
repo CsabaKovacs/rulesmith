@@ -164,6 +164,11 @@ What to do:
 6) Return generated files and written files.
 ```
 
+Recommended two-step quality flow for new projects:
+1) `bootstrap_rules` (baseline files from declared stack)
+2) `bootstrap_specialization_prompt` (AI second-pass prompt)
+3) run `diff_rules` and `apply_rules` after AI specialization
+
 When you do not have an existing codebase yet, create initial rules from a seed:
 
 ```bash
@@ -176,6 +181,11 @@ node packages/cli/dist/index.js bootstrap /absolute/path/to/new-repo \
   --lint "pnpm -r lint" \
   --mode safe
 ```
+
+The command above also writes an AI specialization prompt by default:
+- `.rulesmith/bootstrap-specialize-prompt.md`
+
+Paste that prompt into your host AI chat to enrich the baseline rule files with strict language/framework standards and best practices.
 
 ## What can be generated
 

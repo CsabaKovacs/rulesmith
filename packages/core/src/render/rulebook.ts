@@ -118,6 +118,78 @@ function documentationStandardForLanguage(language: string): string | undefined 
   }
 }
 
+function frameworkBootstrapDefaults(framework: string): string[] {
+  switch (framework) {
+    case "laravel":
+      return [
+        "Laravel defaults: enforce FormRequest validation, service/repository boundaries where already planned, explicit policy/gate authorization, and migration-first schema changes.",
+        "Laravel defaults: keep routes/controllers thin and place business logic in dedicated services/actions."
+      ];
+    case "node":
+    case "express":
+      return [
+        "Node backend defaults: enforce route -> service -> data access separation, input validation at boundary, and centralized error mapping.",
+        "Node backend defaults: preserve deterministic script/tooling workflow via package scripts and CI parity."
+      ];
+    case "vue":
+      return [
+        "Vue defaults: keep component boundaries explicit, avoid business logic in templates, and centralize shared state patterns.",
+        "Vue defaults: enforce composable/module reuse over duplicated component logic."
+      ];
+    case "react":
+    case "nextjs":
+      return [
+        "React/Next defaults: keep data-fetching and UI concerns separated, enforce typed props/contracts, and avoid hidden side effects in components."
+      ];
+    case "flutter":
+      return [
+        "Flutter defaults: keep widget, state, and data layers separated; avoid coupling presentation to transport/storage details."
+      ];
+    case "django":
+    case "fastapi":
+      return [
+        "Python web defaults: enforce schema validation at boundaries, explicit service/use-case layering, and test-first API behavior checks."
+      ];
+    default:
+      return [];
+  }
+}
+
+function buildBootstrapQualitySection(profile: ProjectProfile, hasLaravel: boolean): RulebookSection {
+  const bullets: string[] = [
+    "This repository profile is bootstrapped from user input (greenfield). Treat these rules as strict starter defaults until real code evidence exists.",
+    "Prefer standard-compliant code from day one to minimize future migration cost."
+  ];
+
+  const languages = profile.languages.filter((language) => language.confidence >= 0.2);
+  for (const language of languages) {
+    const standard = standardForLanguage(language.name, hasLaravel);
+    const doc = documentationStandardForLanguage(language.name);
+    if (standard) {
+      bullets.push(withEvidence(`Bootstrap standard (${displayLanguageName(language.name)}): ${standard}`, language.evidence));
+    }
+    if (doc) {
+      bullets.push(withEvidence(`Bootstrap documentation (${displayLanguageName(language.name)}): ${doc}`, language.evidence));
+    }
+  }
+
+  for (const framework of profile.frameworks.filter((item) => item.confidence >= 0.2)) {
+    const defaults = frameworkBootstrapDefaults(framework.name);
+    for (const line of defaults) {
+      bullets.push(withEvidence(`Bootstrap framework default (${framework.name}): ${line}`, framework.evidence));
+    }
+  }
+
+  bullets.push("Quality baseline: require tests for every non-trivial feature path, explicit error handling, and no silent failures.");
+  bullets.push("Code organization baseline: enforce DRY without premature abstraction; keep files cohesive and avoid mega files.");
+  bullets.push("Security baseline: validate all external inputs, protect secrets/config boundaries, and document auth/permission decisions.");
+
+  return {
+    title: "Bootstrap Quality Defaults",
+    bullets
+  };
+}
+
 function buildPolicySection(args: {
   profile: ProjectProfile;
   policy: RulebookPolicy;
@@ -1103,6 +1175,8 @@ export async function buildRulebook(profile: ProjectProfile, policy?: Partial<Ru
   const strongFrameworks = profile.frameworks.filter((framework) => framework.confidence >= 0.6);
   const mixedLanguage = profile.languages.filter((language) => language.confidence >= 0.25).length >= 3;
   const weakSignals = strongFrameworks.length === 0;
+  const isBootstrapProfile = profile.guardrails.notes.some((note) => /bootstrapp?ed/i.test(note));
+  const hasLaravel = profile.frameworks.some((framework) => framework.name === "laravel" && framework.confidence >= 0.5);
 
   const snapshot: string[] = [
     withEvidence(
@@ -1131,9 +1205,13 @@ export async function buildRulebook(profile: ProjectProfile, policy?: Partial<Ru
       profile,
       policy: normalizedPolicy,
       isMixedOrWeak: mixedLanguage || weakSignals,
-      hasLaravel: false
+      hasLaravel
     })
   );
+
+  if (isBootstrapProfile) {
+    sections.push(buildBootstrapQualitySection(profile, hasLaravel));
+  }
 
   sections.push({
     title: "Repository Layout",
@@ -1194,7 +1272,7 @@ export async function buildRulebook(profile: ProjectProfile, policy?: Partial<Ru
     bullets: healthBullets.map((line) => withEvidence(line, line.startsWith("Potentially") ? [] : []))
   });
 
-  if (mixedLanguage || weakSignals) {
+  if (!isBootstrapProfile && (mixedLanguage || weakSignals)) {
     sections.push({
       title: "Messy/Legacy Code Stabilization",
       bullets: [

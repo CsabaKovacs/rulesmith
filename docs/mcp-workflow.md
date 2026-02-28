@@ -22,6 +22,7 @@ This is a **stdio MCP server**. Logs go to `stderr` only.
 - `build_evidence_bundle`
 - `render_rules`
 - `bootstrap_rules`
+- `bootstrap_specialization_prompt`
 - `diff_rules`
 - `apply_rules`
 - `list_packs`
@@ -43,6 +44,7 @@ Run the following sequence in your host AI chat:
 
 For greenfield repositories (no meaningful code yet), use:
 - `bootstrap_rules` with a seed object (`languages`, `frameworks`, optional commands/guardrails)
+- `bootstrap_specialization_prompt` to generate the second-pass AI prompt that enriches baseline files with strict standards/best practices
 - then `diff_rules` -> `apply_rules`
 
 ## Example prompt (copy/paste)

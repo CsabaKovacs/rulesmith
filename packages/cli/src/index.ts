@@ -118,6 +118,19 @@ function policyFromFlags(args: {
   };
 }
 
+function selectedTargetsCsv(targets: RenderTargets): string {
+  return [
+    targets.codex ? "codex" : "",
+    targets.copilot ? "copilot" : "",
+    targets.claude ? "claude" : "",
+    targets.junie ? "junie" : "",
+    targets.gemini ? "gemini" : "",
+    targets.antigravity ? "antigravity" : ""
+  ]
+    .filter(Boolean)
+    .join(", ");
+}
+
 function buildAiAuthorPrompt(args: {
   repoPath: string;
   focus: BundleFocus;
@@ -127,16 +140,7 @@ function buildAiAuthorPrompt(args: {
   targets: RenderTargets;
   policy: RenderPolicy;
 }): string {
-  const targets = [
-    args.targets.codex ? "codex" : "",
-    args.targets.copilot ? "copilot" : "",
-    args.targets.claude ? "claude" : "",
-    args.targets.junie ? "junie" : "",
-    args.targets.gemini ? "gemini" : "",
-    args.targets.antigravity ? "antigravity" : ""
-  ]
-    .filter(Boolean)
-    .join(", ");
+  const targets = selectedTargetsCsv(args.targets);
 
   return [
     "Use rulesmith MCP as evidence provider and generate project-specific instruction files with AI reasoning.",
@@ -177,6 +181,53 @@ function buildAiAuthorPrompt(args: {
     "- Include a Definition-of-Done section that requires tests, documentation updates, and explicit UNKNOWN/TODO handling.",
     "- Add a dedicated 'Documentation Maintenance' section in generated rule files that requires automatic updates to both developer docs and user-facing docs whenever behavior/contracts change.",
     "- If the codebase IS mixed/salad legacy, prefer incremental stabilization and project-local conventions over forcing broad external standards."
+  ].join("\n");
+}
+
+function buildBootstrapSpecializationPrompt(args: {
+  repoPath: string;
+  targets: RenderTargets;
+  policy: RenderPolicy;
+  languages: string[];
+  frameworks: string[];
+}): string {
+  const targets = selectedTargetsCsv(args.targets);
+  const langs = args.languages.length > 0 ? args.languages.join(", ") : "UNKNOWN";
+  const fws = args.frameworks.length > 0 ? args.frameworks.join(", ") : "UNKNOWN";
+
+  return [
+    "Use rulesmith MCP as evidence provider only.",
+    "This is a NEW project bootstrap specialization pass (no repository scan required).",
+    "",
+    `Repository: ${args.repoPath}`,
+    `Selected targets: ${targets}`,
+    `Declared languages: ${langs}`,
+    `Declared frameworks: ${fws}`,
+    `Policy: strictness=${args.policy.strictness ?? "very-strict"}, standards=${args.policy.standards ?? "project-plus-standard"}`,
+    "",
+    "Objective:",
+    "Rewrite/enrich generated rule files so they are highly specific, strict, and production-grade for the declared stack.",
+    "",
+    "Required workflow:",
+    "1) Read currently generated rule files from the repo (AGENTS/CLAUDE/GEMINI/Copilot/Junie/Antigravity depending on selected targets).",
+    "2) Keep existing structure, but expand with language/framework standards and practical implementation defaults.",
+    "3) Add framework-specific conventions, architecture defaults, testing strategy, security and performance checklists.",
+    "4) Add explicit DO/DON'T gates, code review gates, and Definition of Done.",
+    "5) Keep UNKNOWN/TODO only where truly undecidable from declared stack.",
+    "6) Show diff first, then apply in safe mode.",
+    "",
+    "Standards requirements (apply when language is present):",
+    "- PHP/Laravel: PSR-12, Pint/PHPCS, FormRequest validation, service/action boundaries, policy/gate authorization, migration discipline.",
+    "- TypeScript/JavaScript: strict TS where used, ESLint+Prettier, explicit module boundaries, side-effect discipline.",
+    "- Python: Black/Ruff, typed boundaries where applicable, explicit package layering and test-first API behavior.",
+    "- Go: gofmt/goimports, explicit error handling, package boundaries, contract-preserving changes.",
+    "- Dart/Flutter: dart format, flutter analyze, clear UI/state/data boundaries.",
+    "",
+    "Quality requirements:",
+    "- DRY without premature abstraction.",
+    "- Avoid mega files; keep high cohesion and clear responsibilities.",
+    "- Require documentation standards (PHPDoc/TSDoc/docstrings/Go doc/etc.) for public interfaces.",
+    "- Require developer + user documentation updates when behavior/contracts change."
   ].join("\n");
 }
 
@@ -580,6 +631,8 @@ async function main() {
     .option("--forbidden-paths <forbiddenPaths>", "comma separated forbidden paths")
     .option("--guardrail-notes <guardrailNotes>", "comma separated guardrail notes")
     .option("--mode <mode>", "none|safe|force", "none")
+    .option("--specialize-prompt-out <specializePromptOut>", "AI specialization prompt output file", ".rulesmith/bootstrap-specialize-prompt.md")
+    .option("--no-specialize-prompt", "disable AI specialization prompt generation")
     .action(async (repoPathArg, options) => {
       const repoPath = resolveRepoPath(repoPathArg);
       const mode = parseApplyMode(options.mode) ?? "none";
@@ -590,50 +643,55 @@ async function main() {
         throw new Error("bootstrap requires at least one language or framework.");
       }
 
+      const seed = {
+        signals: {
+          configFiles: parseCsv(options.configFiles),
+          ciFiles: parseCsv(options.ciFiles),
+          entrypoints: parseCsv(options.entrypoints)
+        },
+        languages,
+        frameworks,
+        build: {
+          commands: {
+            install: options.install,
+            build: options.build,
+            test: options.test,
+            lint: options.lint,
+            format: options.format,
+            dev: options.dev
+          },
+          evidence: parseCsv(options.buildEvidence)
+        },
+        structure: {
+          monorepo: Boolean(options.monorepo),
+          workspaces: parseCsv(options.workspaces),
+          generatedDirs: parseCsv(options.generatedDirs),
+          vendorDirs: parseCsv(options.vendorDirs)
+        },
+        guardrails: {
+          forbiddenPaths: parseCsv(options.forbiddenPaths),
+          notes: parseCsv(options.guardrailNotes)
+        }
+      };
+
+      const targets = parseTargets(options.targets);
+      const policy = policyFromFlags({
+        strictness: options.strictness,
+        standards: options.standards,
+        copilotProfile: options.copilotProfile,
+        claudeProfile: options.claudeProfile,
+        junieProfile: options.junieProfile,
+        geminiProfile: options.geminiProfile,
+        antigravityProfile: options.antigravityProfile
+      });
+
       const files = await bootstrapRules({
         repoPath,
         pack: options.pack,
         overrides: options.overrides,
-        seed: {
-          signals: {
-            configFiles: parseCsv(options.configFiles),
-            ciFiles: parseCsv(options.ciFiles),
-            entrypoints: parseCsv(options.entrypoints)
-          },
-          languages,
-          frameworks,
-          build: {
-            commands: {
-              install: options.install,
-              build: options.build,
-              test: options.test,
-              lint: options.lint,
-              format: options.format,
-              dev: options.dev
-            },
-            evidence: parseCsv(options.buildEvidence)
-          },
-          structure: {
-            monorepo: Boolean(options.monorepo),
-            workspaces: parseCsv(options.workspaces),
-            generatedDirs: parseCsv(options.generatedDirs),
-            vendorDirs: parseCsv(options.vendorDirs)
-          },
-          guardrails: {
-            forbiddenPaths: parseCsv(options.forbiddenPaths),
-            notes: parseCsv(options.guardrailNotes)
-          }
-        },
-        targets: parseTargets(options.targets),
-        policy: policyFromFlags({
-          strictness: options.strictness,
-          standards: options.standards,
-          copilotProfile: options.copilotProfile,
-          claudeProfile: options.claudeProfile,
-          junieProfile: options.junieProfile,
-          geminiProfile: options.geminiProfile,
-          antigravityProfile: options.antigravityProfile
-        })
+        seed,
+        targets,
+        policy
       });
 
       const patch = await diffRules({ repoPath, files });
@@ -646,14 +704,34 @@ async function main() {
               mode
             });
 
+      let specializePromptOut: string | undefined;
+      if (options.specializePrompt) {
+        const specializePrompt = buildBootstrapSpecializationPrompt({
+          repoPath,
+          targets,
+          policy,
+          languages: languages.map((item) => item.name),
+          frameworks: frameworks.map((item) => item.name)
+        });
+        specializePromptOut = path.resolve(options.specializePromptOut);
+        await fs.mkdir(path.dirname(specializePromptOut), { recursive: true });
+        await fs.writeFile(specializePromptOut, `${specializePrompt}\n`, "utf8");
+      }
+
       process.stdout.write(
         `${JSON.stringify(
           {
             repoPath,
             mode,
+            targets,
+            policy,
             generated: files.map((file) => file.path),
             written: result.written,
-            diffPreview: patch.split("\n").slice(0, 60).join("\n")
+            diffPreview: patch.split("\n").slice(0, 60).join("\n"),
+            specializePromptOut,
+            nextStep: options.specializePrompt
+              ? "Paste specializePromptOut into your host AI chat to enrich bootstrap rule files with strict language/framework standards."
+              : undefined
           },
           null,
           2

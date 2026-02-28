@@ -68,6 +68,54 @@ function asToolResult(payload: unknown) {
   };
 }
 
+function buildBootstrapSpecializationPrompt(args: {
+  repoPath: string;
+  targets: { codex: boolean; copilot: boolean; claude: boolean; junie: boolean; gemini: boolean; antigravity: boolean };
+  policy?: {
+    strictness?: "baseline" | "strict" | "very-strict";
+    standards?: "auto" | "project-only" | "project-plus-standard";
+  };
+  languages: string[];
+  frameworks: string[];
+}): string {
+  const targets = [
+    args.targets.codex ? "codex" : "",
+    args.targets.copilot ? "copilot" : "",
+    args.targets.claude ? "claude" : "",
+    args.targets.junie ? "junie" : "",
+    args.targets.gemini ? "gemini" : "",
+    args.targets.antigravity ? "antigravity" : ""
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  return [
+    "Use rulesmith MCP as evidence provider only.",
+    "This is a NEW project bootstrap specialization pass (no repository scan required).",
+    "",
+    `Repository: ${args.repoPath}`,
+    `Selected targets: ${targets}`,
+    `Declared languages: ${args.languages.join(", ") || "UNKNOWN"}`,
+    `Declared frameworks: ${args.frameworks.join(", ") || "UNKNOWN"}`,
+    `Policy: strictness=${args.policy?.strictness ?? "very-strict"}, standards=${args.policy?.standards ?? "project-plus-standard"}`,
+    "",
+    "1) Read currently generated rule files for selected targets.",
+    "2) Enrich them with language/framework standards, best practices, and strict quality gates.",
+    "3) Add architecture defaults, testing/security/performance checklists, and Definition of Done.",
+    "4) Keep UNKNOWN/TODO only where undecidable from declared stack.",
+    "5) Show diff first, then apply in safe mode.",
+    "",
+    "Must include standards where applicable:",
+    "- PHP/Laravel: PSR-12, Pint/PHPCS, FormRequest-first validation, service/action boundaries.",
+    "- JS/TS: ESLint+Prettier, strict TS where used, explicit module boundaries.",
+    "- Python: Black/Ruff, typed boundaries where applicable.",
+    "- Go: gofmt/goimports + explicit error handling.",
+    "- Dart/Flutter: dart format + flutter analyze.",
+    "",
+    "Must enforce DRY without premature abstraction, avoid mega files, and require documentation updates for behavior/contract changes."
+  ].join("\n");
+}
+
 async function start() {
   const server = new McpServer({ name: "rulesmith", version: "0.1.0" });
   const serverAny = server as any;
@@ -254,6 +302,64 @@ async function start() {
         },
         policy
       })
+  );
+
+  registerTool(
+    "bootstrap_specialization_prompt",
+    {
+      repoPath: z.string().optional(),
+      seed: z.object({
+        languages: z
+          .array(
+            z.object({
+              name: z.string()
+            })
+          )
+          .optional(),
+        frameworks: z
+          .array(
+            z.object({
+              name: z.string()
+            })
+          )
+          .optional()
+      }),
+      targets: z.object({
+        codex: z.boolean().optional(),
+        copilot: z.boolean().optional(),
+        claude: z.boolean().optional(),
+        junie: z.boolean().optional(),
+        gemini: z.boolean().optional(),
+        antigravity: z.boolean().optional()
+      }),
+      policy: z
+        .object({
+          strictness: z.enum(["baseline", "strict", "very-strict"]).optional(),
+          standards: z.enum(["auto", "project-only", "project-plus-standard"]).optional()
+        })
+        .optional()
+    },
+    async ({ repoPath, seed, targets, policy }) => {
+      const resolvedRepoPath = path.resolve(repoPath ?? process.cwd());
+      const normalizedTargets = {
+        codex: targets.codex ?? false,
+        copilot: targets.copilot ?? false,
+        claude: targets.claude ?? false,
+        junie: targets.junie ?? false,
+        gemini: targets.gemini ?? false,
+        antigravity: targets.antigravity ?? false
+      };
+
+      return {
+        prompt: buildBootstrapSpecializationPrompt({
+          repoPath: resolvedRepoPath,
+          targets: normalizedTargets,
+          policy,
+          languages: (seed.languages ?? []).map((item: { name: string }) => item.name),
+          frameworks: (seed.frameworks ?? []).map((item: { name: string }) => item.name)
+        })
+      };
+    }
   );
 
   registerTool(
