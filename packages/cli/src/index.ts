@@ -8,6 +8,7 @@ import {
   applyRules,
   bootstrapRules,
   buildEvidenceBundle,
+  detectRepoScopes,
   diffRules,
   getPack,
   isAllowedWritePath,
@@ -28,6 +29,7 @@ type RenderTargets = {
 };
 type BundleFocus = "laravel" | "generic";
 type ApplyMode = "none" | "safe" | "force";
+type LayoutMode = "mono" | "scope" | "auto";
 
 function parseCsv(value: string | undefined): string[] {
   if (!value) return [];
@@ -88,6 +90,12 @@ function parseApplyMode(value: string | undefined): ApplyMode | undefined {
   if (!value) return undefined;
   if (value === "none" || value === "safe" || value === "force") return value;
   throw new Error("Invalid apply mode. Use none|safe|force.");
+}
+
+function parseLayoutMode(value: string | undefined): LayoutMode | undefined {
+  if (!value) return undefined;
+  if (value === "mono" || value === "scope" || value === "auto") return value;
+  throw new Error("Invalid layout mode. Use auto|mono|scope.");
 }
 
 function parseMaxFiles(value: string | undefined): number {
@@ -155,13 +163,15 @@ function buildAiAuthorPrompt(args: {
     `Policy: strictness=${args.policy.strictness ?? "strict"}, standards=${args.policy.standards ?? "auto"}, copilotProfile=${args.policy.copilotProfile ?? "strict"}, claudeProfile=${args.policy.claudeProfile ?? "strict"}, junieProfile=${args.policy.junieProfile ?? "strict"}, geminiProfile=${args.policy.geminiProfile ?? "strict"}, antigravityProfile=${args.policy.antigravityProfile ?? "strict"}`,
     "",
     "Workflow:",
-    "1) Load the bundle JSON and use it as starting evidence only.",
-    "2) Run additional MCP calls (list_files/search/read_files) to verify and deepen evidence for every claimed rule; if the bundle is paths-only, read files on demand.",
-    "3) For Laravel/module-style codebases, inspect routes, controllers, requests, entities, migrations, config/auth, kernel middleware, layouts, asset build scripts, and permissions wiring.",
-    "4) Produce a highly specific rulebook with concrete conventions already present in this repository.",
-    "5) Every important claim must cite 1+ evidence files; uncertain claims must stay in UNKNOWN/TODO.",
-    "6) Generate AGENTS.md, CLAUDE.md, GEMINI.md, .junie/guidelines.md, .agent/rules/rulesmith.instructions.md, and Copilot files with consistent strictness.",
-    "7) Show diff first, then apply in safe mode if valid.",
+    "1) Run detect_scopes before deeper analysis.",
+    "2) If multiple scopes are detected, ask once for mono vs scope mode; prefer scope mode by default.",
+    "3) Load the bundle JSON and use it as starting evidence only.",
+    "4) Run additional MCP calls (list_files/search/read_files) to verify and deepen evidence for every claimed rule; if the bundle is paths-only, read files on demand.",
+    "5) For Laravel/module-style codebases, inspect routes, controllers, requests, entities, migrations, config/auth, kernel middleware, layouts, asset build scripts, and permissions wiring.",
+    "6) Produce a highly specific rulebook with concrete conventions already present in this repository.",
+    "7) Every important claim must cite 1+ evidence files; uncertain claims must stay in UNKNOWN/TODO.",
+    "8) Generate AGENTS.md, CLAUDE.md, GEMINI.md, .junie/guidelines.md, .agent/rules/rulesmith.instructions.md, and Copilot files with consistent strictness.",
+    "9) Show diff first, then apply in safe mode if valid.",
     "",
     "Output requirements:",
     "- No generic boilerplate wording if repository evidence does not support it.",
@@ -239,6 +249,37 @@ async function writeJson(filePath: string, payload: unknown): Promise<void> {
 function inferFocusFromProfile(profile: Awaited<ReturnType<typeof scanRepo>>): BundleFocus {
   const isLaravel = profile.frameworks.some((framework) => framework.name === "laravel" && framework.confidence >= 0.5);
   return isLaravel ? "laravel" : "generic";
+}
+
+function withScopePrefix(scopeRelPath: string, filePath: string): string {
+  return path.posix.join(scopeRelPath.replace(/\\/g, "/"), filePath.replace(/\\/g, "/"));
+}
+
+function buildRootRoutingAgents(args: { repoPath: string; scopeRelPaths: string[] }): string {
+  const lines = [
+    "# Repository Routing Rules (Root)",
+    "",
+    `These rules apply when working from repository root:`,
+    `\`${args.repoPath.replace(/\\/g, "/")}\``,
+    "",
+    "## Scope First (mandatory)",
+    "- Always determine target scope before planning or editing."
+  ];
+
+  for (const scope of args.scopeRelPaths) {
+    lines.push(`- \`${scope}/*\` -> use \`${scope}/AGENTS.md\``);
+  }
+
+  lines.push("- If the task touches multiple scopes, follow each scope's AGENTS file and keep changes isolated.");
+  lines.push("- If scope is unclear from the request, ask one short clarifying question before implementation.");
+  lines.push("");
+  lines.push("## Execution Defaults");
+  lines.push("- Prefer running commands in the scoped working directory, not repo root.");
+  lines.push("- Do not generate scoped files at root.");
+  lines.push("- Never ignore nested AGENTS.md for touched scope paths.");
+  lines.push("- If a nested AGENTS.md conflicts with this file, nested rules win for that subtree.");
+
+  return `${lines.join("\n")}\n`;
 }
 
 type StartConfig = {
@@ -454,6 +495,7 @@ async function main() {
     .option("--bundleOut <bundleOut>", "bundle output file", ".rulesmith/bundle.json")
     .option("--diffOut <diffOut>", "diff output file", ".rulesmith/rules.diff")
     .option("--apply <apply>", "none|safe|force")
+    .option("--layout-mode <layoutMode>", "auto|mono|scope", "auto")
     .option("--interactive", "force interactive prompts")
     .option("--non-interactive", "disable interactive prompts")
     .action(async (repoPathArg, options) => {
@@ -462,11 +504,10 @@ async function main() {
       }
 
       const repoPath = resolveRepoPath(repoPathArg);
-      const profile = await scanRepo(repoPath);
-      const inferredFocus = inferFocusFromProfile(profile);
-
+      const layoutModeFlag = parseLayoutMode(options.layoutMode) ?? "auto";
+      const scopeDetection = await detectRepoScopes(repoPath);
       const defaultFocusRaw = parseFocus(options.focus);
-      const defaultFocus: BundleFocus = defaultFocusRaw === "auto" || !defaultFocusRaw ? inferredFocus : defaultFocusRaw;
+      const defaultFocus: BundleFocus = defaultFocusRaw === "auto" || !defaultFocusRaw ? "generic" : defaultFocusRaw;
       const defaultPolicy = policyFromFlags({
         strictness: options.strictness,
         standards: options.standards,
@@ -484,6 +525,31 @@ async function main() {
         options.interactive ||
         (!options["nonInteractive"] && Boolean(process.stdin.isTTY) && Boolean(process.stdout.isTTY));
 
+      const selectedLayoutMode: Exclude<LayoutMode, "auto"> =
+        layoutModeFlag === "auto"
+          ? shouldPrompt && scopeDetection.scopes.length >= 2
+            ? await (async () => {
+                const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+                try {
+                  process.stdout.write(
+                    `Detected multiple project scopes: ${scopeDetection.scopes.map((scope) => scope.relPath).join(", ")}\n`
+                  );
+                  return promptChoice(
+                    rl,
+                    "Use scope-aware generation?",
+                    [
+                      { value: "scope", label: "scope - generate per scope + root routing AGENTS.md" },
+                      { value: "mono", label: "mono - generate once at repository root" }
+                    ],
+                    "scope"
+                  );
+                } finally {
+                  rl.close();
+                }
+              })()
+            : scopeDetection.recommendedMode
+          : layoutModeFlag;
+
       const config = shouldPrompt
         ? await collectStartConfigInteractive({
             defaultFocus,
@@ -500,57 +566,171 @@ async function main() {
             applyMode: defaultApplyMode
           };
 
-      const effectiveMaxFiles =
-        config.maxFiles === 0
-          ? Math.max(profile.meta.repoSize?.files ?? 100_000, 100_000)
-          : config.maxFiles;
-
-      const bundle = await buildEvidenceBundle({
-        repoPath,
-        focus: config.focus,
-        maxFiles: effectiveMaxFiles,
-        includeContent: Boolean(options.includeContent)
-      });
-
+      const includeContent = Boolean(options.includeContent);
       const bundleOut = path.resolve(options.bundleOut);
-      await writeJson(bundleOut, bundle);
-
-      const files = await renderRules({
-        repoPath,
-        pack: options.pack,
-        overrides: options.overrides,
-        targets: config.targets,
-        policy: config.policy
-      });
-
-      const patch = await diffRules({ repoPath, files });
       const diffOut = path.resolve(options.diffOut);
-      await fs.mkdir(path.dirname(diffOut), { recursive: true });
-      await fs.writeFile(diffOut, patch, "utf8");
 
-      const applyResult =
-        config.applyMode === "none"
-          ? { written: [] }
-          : await applyRules({
-              repoPath,
-              files,
-              mode: config.applyMode
-            });
+      const scopeResult =
+        selectedLayoutMode === "scope" && scopeDetection.scopes.length >= 2
+          ? await (async () => {
+              const perScope = [];
+              const files = [];
+              const bundles = [];
+              const profileMeta = [];
+
+              for (const scope of scopeDetection.scopes) {
+                const profile = await scanRepo(scope.path);
+                const focus = defaultFocusRaw === "auto" || !defaultFocusRaw ? inferFocusFromProfile(profile) : config.focus;
+                const effectiveMaxFiles =
+                  config.maxFiles === 0
+                    ? Math.max(profile.meta.repoSize?.files ?? 100_000, 100_000)
+                    : config.maxFiles;
+
+                const bundle = await buildEvidenceBundle({
+                  repoPath: scope.path,
+                  focus,
+                  maxFiles: effectiveMaxFiles,
+                  includeContent
+                });
+                bundles.push({ scope: scope.relPath, focus, bundle });
+
+                const rendered = await renderRules({
+                  repoPath: scope.path,
+                  pack: options.pack,
+                  overrides: options.overrides,
+                  targets: config.targets,
+                  policy: config.policy
+                });
+                for (const file of rendered) {
+                  files.push({ path: withScopePrefix(scope.relPath, file.path), content: file.content });
+                }
+
+                perScope.push({
+                  scope: scope.relPath,
+                  focus,
+                  generated: rendered.map((file) => withScopePrefix(scope.relPath, file.path))
+                });
+                profileMeta.push({ scope: scope.relPath, scannedAt: profile.meta.scannedAt, repoSize: profile.meta.repoSize });
+              }
+
+              if (config.targets.codex) {
+                files.push({
+                  path: "AGENTS.md",
+                  content: buildRootRoutingAgents({
+                    repoPath,
+                    scopeRelPaths: scopeDetection.scopes.map((scope) => scope.relPath)
+                  })
+                });
+              }
+
+              const patch = await diffRules({ repoPath, files });
+              await fs.mkdir(path.dirname(diffOut), { recursive: true });
+              await fs.writeFile(diffOut, patch, "utf8");
+
+              const applyResult =
+                config.applyMode === "none"
+                  ? { written: [] as string[] }
+                  : await applyRules({
+                      repoPath,
+                      files,
+                      mode: config.applyMode
+                    });
+
+              await writeJson(bundleOut, {
+                mode: "scope",
+                scopes: bundles.map((entry) => ({
+                  scope: entry.scope,
+                  focus: entry.focus,
+                  bundle: entry.bundle
+                }))
+              });
+
+              return {
+                mode: "scope" as const,
+                profileMeta,
+                generated: files.map((file) => file.path),
+                written: applyResult.written,
+                perScope
+              };
+            })()
+          : null;
+
+      let monoResult:
+        | {
+            mode: "mono";
+            scannedAt: string;
+            repoSize: unknown;
+            focus: BundleFocus;
+            generated: string[];
+            written: string[];
+          }
+        | null = null;
+
+      if (!scopeResult) {
+        const profile = await scanRepo(repoPath);
+        const focus = defaultFocusRaw === "auto" || !defaultFocusRaw ? inferFocusFromProfile(profile) : config.focus;
+        const effectiveMaxFiles =
+          config.maxFiles === 0
+            ? Math.max(profile.meta.repoSize?.files ?? 100_000, 100_000)
+            : config.maxFiles;
+
+        const bundle = await buildEvidenceBundle({
+          repoPath,
+          focus,
+          maxFiles: effectiveMaxFiles,
+          includeContent
+        });
+        await writeJson(bundleOut, bundle);
+
+        const files = await renderRules({
+          repoPath,
+          pack: options.pack,
+          overrides: options.overrides,
+          targets: config.targets,
+          policy: config.policy
+        });
+
+        const patch = await diffRules({ repoPath, files });
+        await fs.mkdir(path.dirname(diffOut), { recursive: true });
+        await fs.writeFile(diffOut, patch, "utf8");
+
+        const applyResult =
+          config.applyMode === "none"
+            ? { written: [] }
+            : await applyRules({
+                repoPath,
+                files,
+                mode: config.applyMode
+              });
+
+        monoResult = {
+          mode: "mono",
+          scannedAt: profile.meta.scannedAt,
+          repoSize: profile.meta.repoSize,
+          focus,
+          generated: files.map((file) => file.path),
+          written: applyResult.written
+        };
+      }
 
       process.stdout.write(
         `${JSON.stringify(
           {
             repoPath,
-            scannedAt: profile.meta.scannedAt,
-            focus: config.focus,
-            bundleMode: options.includeContent ? "with-content" : "paths-only",
+            layoutMode: selectedLayoutMode,
+            scopeRecommendation: scopeDetection.recommendedMode,
+            detectedScopes: scopeDetection.scopes.map((scope) => ({ path: scope.relPath, markers: scope.markers })),
+            bundleMode: includeContent ? "with-content" : "paths-only",
             policy: config.policy,
             targets: config.targets,
             bundleOut,
             diffOut,
-            generated: files.map((file) => file.path),
-            written: applyResult.written,
-            repoSize: profile.meta.repoSize
+            generated: scopeResult ? scopeResult.generated : monoResult?.generated,
+            written: scopeResult ? scopeResult.written : monoResult?.written,
+            scopeDetails: scopeResult?.perScope,
+            scannedAt: monoResult?.scannedAt,
+            repoSize: monoResult?.repoSize,
+            focus: monoResult?.focus
           },
           null,
           2
@@ -564,6 +744,14 @@ async function main() {
     .action(async (repoPathArg) => {
       const profile = await scanRepo(resolveRepoPath(repoPathArg));
       process.stdout.write(`${JSON.stringify(profile, null, 2)}\n`);
+    });
+
+  program
+    .command("detect-scopes")
+    .argument("[repoPath]")
+    .action(async (repoPathArg) => {
+      const result = await detectRepoScopes(resolveRepoPath(repoPathArg));
+      process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
     });
 
   program

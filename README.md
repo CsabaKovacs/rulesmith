@@ -81,13 +81,19 @@ What to do:
   node "$RULESMITH_HOME/packages/mcp/dist/server.js"
 - Verify MCP registration is active before continuing.
 
-3) Run full analysis on target repo using MCP
+3) Detect layout mode before deep analysis
+- run detect_scopes
+- if 2+ scopes are detected, ask once whether to use mono or scope mode
+- prefer scope mode by default
+- in scope mode, run analysis+generation per scope and generate a root routing AGENTS.md
+
+4) Run full analysis on target repo using MCP
 - scan_repo
 - build_evidence_bundle with:
   focus="generic", maxFiles=1200, includeContent=false
 - Expand evidence with list_files/search/read_files for key areas before finalizing rules.
 
-4) Generate and apply rule files with target batching
+5) Generate and apply rule files with target batching
 - Build batches from `<TARGETS_CSV>` using `<TARGET_BATCH_SIZE>` (recommended 1-2 targets per batch).
 - For each batch, run:
   - render_rules with batch targets and policy:
@@ -99,7 +105,7 @@ What to do:
   - continue until every selected target is processed.
 - If MCP generation repeatedly truncates, switch render/diff/apply to rulesmith CLI with the same policy and target batches.
 
-5) Validate outputs in target repo for selected targets only
+6) Validate outputs in target repo for selected targets only
 Use this mapping:
 - codex -> AGENTS.md
 - claude -> CLAUDE.md
@@ -108,7 +114,7 @@ Use this mapping:
 - junie -> .junie/guidelines.md
 - antigravity -> .agent/rules/rulesmith.instructions.md
 
-6) Final report (required)
+7) Final report (required)
 Return a concise report with:
 - Installed path of rulesmith
 - MCP registration status

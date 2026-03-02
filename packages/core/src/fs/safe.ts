@@ -9,7 +9,14 @@ export const WRITE_ALLOWLIST = [
   ".junie/guidelines.md",
   ".agent/rules/rulesmith.instructions.md",
   ".github/copilot-instructions.md",
-  ".github/instructions"
+  ".github/instructions",
+  "<scope>/AGENTS.md",
+  "<scope>/CLAUDE.md",
+  "<scope>/GEMINI.md",
+  "<scope>/.junie/guidelines.md",
+  "<scope>/.agent/rules/rulesmith.instructions.md",
+  "<scope>/.github/copilot-instructions.md",
+  "<scope>/.github/instructions/*.instructions.md"
 ] as const;
 
 function normalizeSlashes(input: string): string {
@@ -73,19 +80,33 @@ export async function assertPathInsideRepo(repoRoot: string, fullPath: string): 
 
 export function isAllowedWritePath(relativePath: string): boolean {
   const normalized = normalizeSlashes(path.posix.normalize(relativePath));
-  if (normalized === "AGENTS.md" || normalized === "CLAUDE.md" || normalized === "GEMINI.md") {
+  const firstSlash = normalized.indexOf("/");
+  const scopeRemainder =
+    firstSlash > 0 && !normalized.startsWith(".") ? normalized.slice(firstSlash + 1) : undefined;
+
+  const isAllowedBasePath = (candidate: string): boolean => {
+    if (candidate === "AGENTS.md" || candidate === "CLAUDE.md" || candidate === "GEMINI.md") {
+      return true;
+    }
+    if (candidate === ".junie/guidelines.md") {
+      return true;
+    }
+    if (candidate === ".agent/rules/rulesmith.instructions.md") {
+      return true;
+    }
+    if (candidate === ".github/copilot-instructions.md") {
+      return true;
+    }
+    if (candidate.startsWith(".github/instructions/") && candidate.endsWith(".instructions.md")) {
+      return true;
+    }
+    return false;
+  };
+
+  if (isAllowedBasePath(normalized)) {
     return true;
   }
-  if (normalized === ".junie/guidelines.md") {
-    return true;
-  }
-  if (normalized === ".agent/rules/rulesmith.instructions.md") {
-    return true;
-  }
-  if (normalized === ".github/copilot-instructions.md") {
-    return true;
-  }
-  if (normalized.startsWith(".github/instructions/") && normalized.endsWith(".instructions.md")) {
+  if (scopeRemainder && isAllowedBasePath(scopeRemainder)) {
     return true;
   }
   return false;

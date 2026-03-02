@@ -26,9 +26,12 @@ describe("safe fs", () => {
     await expect(assertAllowedWritePath(repo, ".agent/rules/rulesmith.instructions.md")).resolves.toContain(
       ".agent/rules/rulesmith.instructions.md"
     );
+    await expect(assertAllowedWritePath(repo, "backend/AGENTS.md")).resolves.toContain("backend/AGENTS.md");
     expect(isAllowedWritePath(".github/instructions/api.instructions.md")).toBe(true);
     expect(isAllowedWritePath(".junie/guidelines.md")).toBe(true);
     expect(isAllowedWritePath(".agent/rules/rulesmith.instructions.md")).toBe(true);
+    expect(isAllowedWritePath("backend/.github/copilot-instructions.md")).toBe(true);
+    expect(isAllowedWritePath("backend/.github/instructions/api.instructions.md")).toBe(true);
   });
 
   it("rejects traversal and absolute reads", async () => {

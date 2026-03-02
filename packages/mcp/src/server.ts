@@ -3,6 +3,7 @@ import {
   applyRules,
   bootstrapRules,
   buildEvidenceBundle,
+  detectRepoScopes,
   diffRules,
   getPack,
   listPacks,
@@ -125,6 +126,10 @@ async function start() {
   };
 
   registerTool("scan_repo", { repoPath: z.string().optional() }, async ({ repoPath }) => scanRepo(path.resolve(repoPath ?? process.cwd())));
+
+  registerTool("detect_scopes", { repoPath: z.string().optional() }, async ({ repoPath }) =>
+    detectRepoScopes(path.resolve(repoPath ?? process.cwd()))
+  );
 
   registerTool(
     "list_files",
