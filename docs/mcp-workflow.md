@@ -159,6 +159,7 @@ What to do:
   - gemini -> root `GEMINI.md` routing to scoped `*/GEMINI.md`
   - junie -> root `.junie/guidelines.md` that routes to scope-specific conventions
   - antigravity -> root `.agent/rules/rulesmith.instructions.md` routing to scoped rules
+- generated routing/instruction files must use repository-relative paths only (no machine-specific absolute paths)
 
 4) Run full analysis on target repo using MCP
 - scan_repo

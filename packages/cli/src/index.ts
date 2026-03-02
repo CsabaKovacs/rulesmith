@@ -177,6 +177,7 @@ function buildAiAuthorPrompt(args: {
     "- No generic boilerplate wording if repository evidence does not support it.",
     "- Preserve existing architecture and naming patterns unless explicitly asked to refactor.",
     "- Include actionable implementation rules for future contributors.",
+    "- Never write absolute filesystem paths in generated instruction files; use repository-relative paths only.",
     "- If the codebase is NOT a mixed/salad legacy system by evidence, include language-standard and best-practice sections in generated rule files (for detected languages/frameworks).",
     "- Examples of expected language standards when applicable: PHP/Laravel (PSR-12, Pint/PHPCS + framework conventions), JS/TS (ESLint, Prettier, strict TS where used), Python (Black/Ruff), Go (gofmt/goimports), Dart/Flutter (dart format + flutter analyze).",
     "- Include language-appropriate documentation standards (PHPDoc, TSDoc/JSDoc, docstrings, Go exported comments, etc.) for public interfaces and non-obvious logic.",
@@ -255,12 +256,11 @@ function withScopePrefix(scopeRelPath: string, filePath: string): string {
   return path.posix.join(scopeRelPath.replace(/\\/g, "/"), filePath.replace(/\\/g, "/"));
 }
 
-function buildRootRoutingAgents(args: { repoPath: string; scopeRelPaths: string[] }): string {
+function buildRootRoutingAgents(args: { scopeRelPaths: string[] }): string {
   const lines = [
     "# Repository Routing Rules (Root)",
     "",
-    `These rules apply when working from repository root:`,
-    `\`${args.repoPath.replace(/\\/g, "/")}\``,
+    "These rules apply when working from the repository root (`.`).",
     "",
     "## Scope First (mandatory)",
     "- Always determine target scope before planning or editing."
@@ -617,7 +617,6 @@ async function main() {
                 files.push({
                   path: "AGENTS.md",
                   content: buildRootRoutingAgents({
-                    repoPath,
                     scopeRelPaths: scopeDetection.scopes.map((scope) => scope.relPath)
                   })
                 });
