@@ -48,7 +48,8 @@ Maximum targets per batch (recommended 1-2, default 2):
 Strict execution requirements:
 - Actually run commands and MCP tools. Do not only describe steps.
 - If a command fails, fix it and continue.
-- Use absolute paths everywhere.
+- Use absolute paths for command execution and MCP tool arguments only.
+- In generated instruction/routing files, use repository-relative paths only (never machine-specific absolute paths).
 - Do not stop until scan + generation + apply are complete.
 - Use rulesmith MCP tools for repository analysis and rule generation workflow.
 - Default generation policy unless explicitly overridden: `strictness="very-strict"` and `standards="project-plus-standard"`.
