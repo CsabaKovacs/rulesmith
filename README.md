@@ -85,7 +85,13 @@ What to do:
 - run detect_scopes
 - if 2+ scopes are detected, ask once whether to use mono or scope mode
 - prefer scope mode by default
-- in scope mode, run analysis+generation per scope and generate a root routing AGENTS.md
+- in scope mode, run analysis+generation per scope and generate assistant-aware root routing files:
+  - codex -> root `AGENTS.md` routing to scoped `*/AGENTS.md`
+  - copilot -> root `.github/instructions/*.instructions.md` path-based routing (plus scoped copilot files)
+  - claude -> root `CLAUDE.md` routing/imports to scoped `*/CLAUDE.md` (or equivalent scoped rules)
+  - gemini -> root `GEMINI.md` routing to scoped `*/GEMINI.md`
+  - junie -> root `.junie/guidelines.md` that routes to scope-specific conventions
+  - antigravity -> root `.agent/rules/rulesmith.instructions.md` routing to scoped rules
 
 4) Run full analysis on target repo using MCP
 - scan_repo
