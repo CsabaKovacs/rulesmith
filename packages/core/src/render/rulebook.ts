@@ -190,6 +190,20 @@ function buildBootstrapQualitySection(profile: ProjectProfile, hasLaravel: boole
   };
 }
 
+function buildPostChangeReviewSection(): RulebookSection {
+  return {
+    title: "Post-Change Review Workflow (MANDATORY)",
+    bullets: [
+      "**NEVER SKIP**: After ANY code modification (file edits or new files that change application logic), you MUST run the Post-Change Review Workflow before responding to the user. Failure to run reviews after code changes is a rulebook violation. Skip ONLY for documentation-only, config-only, or trivial text changes.",
+      "Code Quality Review: run a code quality review subagent for changed files when the change affects application logic, architecture, data flow, or reusable components. Check for: adherence to this rulebook's conventions, readability, naming consistency, pattern conformance, unnecessary complexity or duplication, and DRY / no-premature-abstraction principles.",
+      "Security Review: run a security review subagent only when the change touches: request/input handling, authentication or authorization, database queries or persistence, file upload or file access, HTML rendering or user-generated content, external API calls or webhooks, or secrets/tokens/sensitive data. Check for: injection risks, XSS, CSRF, broken access control, missing input validation, sensitive data exposure, and unsafe defaults.",
+      "Review output rules: only report findings when issues are found — if both reviews pass clean, produce no review output. Separate findings into critical, important, and minor severity levels.",
+      "Do not automatically apply review-agent suggestions blindly. Apply fixes only if clearly within scope and low-risk. For high-risk or scope-expanding fixes, report them to the user instead of changing code.",
+      "Ignore purely stylistic suggestions unless they meaningfully improve maintainability. Both review subagents should run in parallel to minimize latency."
+    ]
+  };
+}
+
 function buildPolicySection(args: {
   profile: ProjectProfile;
   policy: RulebookPolicy;
@@ -1007,6 +1021,7 @@ async function buildLaravelRulebook(profile: ProjectProfile, policy: RulebookPol
       "UNKNOWN/TODO items are explicit, actionable, and minimized."
     ]
   });
+  sections.push(buildPostChangeReviewSection());
 
   return {
     title: "Project Conventions (Evidence-Backed)",
@@ -1386,17 +1401,7 @@ export async function buildRulebook(profile: ProjectProfile, policy?: Partial<Ru
       "Outstanding UNKNOWN/TODO items are explicit and actionable."
     ]
   });
-  sections.push({
-    title: "Post-Change Review Workflow (MANDATORY)",
-    bullets: [
-      "**NEVER SKIP**: After ANY code modification (file edits or new files that change application logic), you MUST run the Post-Change Review Workflow before responding to the user. Failure to run reviews after code changes is a rulebook violation. Skip ONLY for documentation-only, config-only, or trivial text changes.",
-      "Code Quality Review: run a code quality review subagent for changed files when the change affects application logic, architecture, data flow, or reusable components. Check for: adherence to this rulebook's conventions, readability, naming consistency, pattern conformance, unnecessary complexity or duplication, and DRY / no-premature-abstraction principles.",
-      "Security Review: run a security review subagent only when the change touches: request/input handling, authentication or authorization, database queries or persistence, file upload or file access, HTML rendering or user-generated content, external API calls or webhooks, or secrets/tokens/sensitive data. Check for: injection risks, XSS, CSRF, broken access control, missing input validation, sensitive data exposure, and unsafe defaults.",
-      "Review output rules: only report findings when issues are found — if both reviews pass clean, produce no review output. Separate findings into critical, important, and minor severity levels.",
-      "Do not automatically apply review-agent suggestions blindly. Apply fixes only if clearly within scope and low-risk. For high-risk or scope-expanding fixes, report them to the user instead of changing code.",
-      "Ignore purely stylistic suggestions unless they meaningfully improve maintainability. Both review subagents should run in parallel to minimize latency."
-    ]
-  });
+  sections.push(buildPostChangeReviewSection());
 
   return {
     title: "Project Conventions (Evidence-Backed)",
