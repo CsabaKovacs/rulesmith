@@ -10,6 +10,7 @@ applyTo: "{{area.applyTo}}"
 
 {{#if copilotStrict}}
 ## Area Execution Contract
+- **BINDING**: This rulebook is mandatory. Every rule and workflow defined here MUST be followed without exception.
 - Area scope: `{{area.applyTo}}`
 - strictness: `{{policy.strictness}}`
 - standards: `{{policy.standards}}`
@@ -36,6 +37,7 @@ applyTo: "{{area.applyTo}}"
 {{/each}}
 {{else}}
 ## Area Execution Contract
+- **BINDING**: This rulebook is mandatory. Every rule defined here MUST be followed without exception.
 - Area scope: `{{area.applyTo}}`
 - strictness: `{{policy.strictness}}`
 - standards: `{{policy.standards}}`

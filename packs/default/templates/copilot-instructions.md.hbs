@@ -2,6 +2,7 @@
 
 {{#if copilotStrict}}
 ## Execution Contract
+- **BINDING**: This rulebook is mandatory. Every rule, convention, and workflow defined here MUST be followed without exception. Skipping, ignoring, or partially applying rules is a violation. If a rule conflicts with your default behavior, the rulebook takes precedence.
 - Make minimal, targeted changes.
 - Cite concrete evidence files when asserting project behavior.
 - Prefer existing project tooling and scripts.
@@ -63,6 +64,7 @@ Notes:
 {{/if}}
 {{else}}
 ## Execution Contract
+- **BINDING**: This rulebook is mandatory. Every rule, convention, and workflow defined here MUST be followed without exception.
 - strictness: `{{policy.strictness}}`
 - standards: `{{policy.standards}}`
 - profile: `short`
