@@ -1386,6 +1386,17 @@ export async function buildRulebook(profile: ProjectProfile, policy?: Partial<Ru
       "Outstanding UNKNOWN/TODO items are explicit and actionable."
     ]
   });
+  sections.push({
+    title: "Post-Change Review Workflow",
+    bullets: [
+      "After completing a code change, run a review workflow only when the task includes actual code modifications. Skip for documentation-only, config-only, or trivial text changes.",
+      "Code Quality Review: run a code quality review subagent for changed files when the change affects application logic, architecture, data flow, or reusable components. Check for: adherence to this rulebook's conventions, readability, naming consistency, pattern conformance, unnecessary complexity or duplication, and DRY / no-premature-abstraction principles.",
+      "Security Review: run a security review subagent only when the change touches: request/input handling, authentication or authorization, database queries or persistence, file upload or file access, HTML rendering or user-generated content, external API calls or webhooks, or secrets/tokens/sensitive data. Check for: injection risks, XSS, CSRF, broken access control, missing input validation, sensitive data exposure, and unsafe defaults.",
+      "Review output rules: only report findings when issues are found — if both reviews pass clean, produce no review output. Separate findings into critical, important, and minor severity levels.",
+      "Do not automatically apply review-agent suggestions blindly. Apply fixes only if clearly within scope and low-risk. For high-risk or scope-expanding fixes, report them to the user instead of changing code.",
+      "Ignore purely stylistic suggestions unless they meaningfully improve maintainability. Both review subagents should run in parallel to minimize latency."
+    ]
+  });
 
   return {
     title: "Project Conventions (Evidence-Backed)",

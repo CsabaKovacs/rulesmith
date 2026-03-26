@@ -67,10 +67,14 @@ What to do:
 - If `<TARGET_BATCH_SIZE>` is missing, use 2. Do not exceed 2 unless explicitly requested.
 - If any validation fails, ask exactly what is missing, wait for user answer, then continue from step 1.
 
-1) Install rulesmith (only if not already installed)
-- If rulesmith is already installed locally, reuse the existing absolute path and skip reinstall unless you intentionally update dependencies.
-- If rulesmith is not installed yet, clone the repo to a local absolute path.
-- Run (first install, or when dependencies/tooling changed):
+1) Install or update rulesmith
+- If rulesmith is not installed yet, clone the repo to a local absolute path:
+  git clone https://github.com/CsabaKovacs/rulesmith.git
+- If rulesmith is already installed locally:
+  - Check the GitHub repo for a newer version: run `git -C "$RULESMITH_HOME" fetch origin` then compare local HEAD with origin/main.
+  - If a newer version is available: `git -C "$RULESMITH_HOME" pull origin main`
+  - If no update is needed, skip to step 2.
+- Run (first install, or after update):
   - pnpm install
   - pnpm -r build
   - pnpm -r test
@@ -79,6 +83,7 @@ What to do:
 - Set RULESMITH_HOME to the cloned rulesmith path.
 - Register rulesmith MCP server using:
   node "$RULESMITH_HOME/packages/mcp/dist/server.js"
+- If rulesmith was updated in step 1, restart the MCP server to use the new version.
 - Verify MCP registration is active before continuing.
 
 3) Detect layout mode before deep analysis
@@ -135,8 +140,10 @@ Return a concise report with:
 If you prefer manual terminal commands, use this block:
 
 ```bash
-# If rulesmith is already installed locally, reuse that absolute path and skip clone/install.
-git clone git@github.com:CsabaKovacs/rulesmith.git rulesmith
+# If rulesmith is already installed locally, check for updates first:
+# git -C /path/to/rulesmith fetch origin && git -C /path/to/rulesmith pull origin main
+# If not installed yet, clone it:
+git clone https://github.com/CsabaKovacs/rulesmith.git rulesmith
 cd rulesmith
 pnpm install && pnpm -r build
 
@@ -162,6 +169,9 @@ Simple MCP prompt (copy/paste):
 ```text
 Use rulesmith MCP to bootstrap a new project (no repository scan).
 
+Repository to install:
+https://github.com/CsabaKovacs/rulesmith
+
 Target repository:
 <ABSOLUTE_PATH_TO_NEW_REPO>
 
@@ -169,10 +179,14 @@ Targets:
 <TARGETS_CSV> (allowed: codex,copilot,claude,junie,gemini,antigravity)
 
 What to do:
-1) Install rulesmith (only if not already installed)
-- If rulesmith is already installed locally, reuse the existing absolute path and skip reinstall unless you intentionally update dependencies.
-- If rulesmith is not installed yet, clone the repo to a local absolute path.
-- Run (first install, or when dependencies/tooling changed):
+1) Install or update rulesmith
+- If rulesmith is not installed yet, clone the repo to a local absolute path:
+  git clone https://github.com/CsabaKovacs/rulesmith.git
+- If rulesmith is already installed locally:
+  - Check the GitHub repo for a newer version: run `git -C "$RULESMITH_HOME" fetch origin` then compare local HEAD with origin/main.
+  - If a newer version is available: `git -C "$RULESMITH_HOME" pull origin main`
+  - If no update is needed, skip to step 2.
+- Run (first install, or after update):
   - pnpm install
   - pnpm -r build
   - pnpm -r test
@@ -180,6 +194,7 @@ What to do:
 - Set RULESMITH_HOME to the cloned rulesmith path.
 - Register rulesmith MCP server using:
   node "$RULESMITH_HOME/packages/mcp/dist/server.js"
+- If rulesmith was updated in step 1, restart the MCP server to use the new version.
 - Verify MCP registration is active before continuing.
 3) Ask me short questions for language(s), framework(s), package manager/tooling, and install/build/test/lint/format/dev commands.
 4) Build a seed object from my answers.
@@ -231,6 +246,22 @@ The command above also writes an AI specialization prompt by default:
 - `.rulesmith/bootstrap-specialize-prompt.md`
 
 Paste that prompt into your host AI chat to enrich the baseline rule files with strict language/framework standards and best practices.
+
+## Post-Change Review Workflow
+
+Generated rule files include a **Post-Change Review Workflow** section that instructs the host AI to run automated subagent reviews after completing code changes. This provides built-in quality and security checks for every generated rulebook.
+
+When included, the workflow triggers two parallel review subagents after code modifications:
+- **Code Quality Review** — checks adherence to rule file conventions, readability, complexity, and duplication (runs only when application logic, architecture, or reusable components are affected)
+- **Security Review** — checks for OWASP Top 10 vulnerabilities, input validation, auth issues, and sensitive data exposure (runs only when security-sensitive areas are touched: input handling, auth, database, file access, HTML rendering, external APIs)
+
+Key design principles:
+- **Trigger-based**: reviews only run when actual code changes are made, not on trivial edits
+- **Scoped**: security review only activates for security-relevant changes
+- **Non-destructive**: review agents report findings but do not automatically apply fixes (except clearly low-risk, in-scope corrections)
+- **Quiet**: findings are only reported when issues are found (no noise on clean code)
+
+To add this workflow to your generated rules, include the review workflow section in your rule files after generation. See the nosalty-ai monorepo for a working example.
 
 ## What can be generated
 
