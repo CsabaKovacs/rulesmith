@@ -1,11 +1,57 @@
 import Handlebars from "handlebars";
 import { createTwoFilesPatch } from "diff";
+import crypto from "node:crypto";
 import { evaluateDecisionTree } from "../dtree/index.js";
 import { writeFileSafe } from "../fs/safe.js";
 import { getPack, listPacks } from "../packs/index.js";
 import type { ProjectProfile } from "../profile/schema.js";
 import { buildRulebook, MANDATORY_CONVENTIONS_TITLE } from "./rulebook.js";
 import { scanRepo } from "../scanner/index.js";
+
+/**
+ * In-memory artifact store for rendered rule files.
+ * Keeps rendered outputs server-side so the AI host does not need to
+ * relay large payloads back through apply_rules.
+ */
+const artifactStore = new Map<string, { files: GeneratedFile[]; createdAt: number }>();
+const ARTIFACT_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const MAX_ARTIFACTS = 100;
+
+function pruneExpiredArtifacts(): void {
+  const now = Date.now();
+  for (const [id, entry] of artifactStore) {
+    if (now - entry.createdAt > ARTIFACT_TTL_MS) {
+      artifactStore.delete(id);
+    }
+  }
+}
+
+export function storeArtifact(files: GeneratedFile[]): string {
+  pruneExpiredArtifacts();
+  if (artifactStore.size >= MAX_ARTIFACTS) {
+    const oldestKey = artifactStore.keys().next().value;
+    if (oldestKey) artifactStore.delete(oldestKey);
+  }
+  const id = crypto.randomUUID();
+  artifactStore.set(id, { files, createdAt: Date.now() });
+  return id;
+}
+
+export function getArtifact(id: string): GeneratedFile[] | null {
+  pruneExpiredArtifacts();
+  const entry = artifactStore.get(id);
+  return entry ? entry.files : null;
+}
+
+export function consumeArtifact(id: string): GeneratedFile[] | null {
+  pruneExpiredArtifacts();
+  const entry = artifactStore.get(id);
+  if (entry) {
+    artifactStore.delete(id);
+    return entry.files;
+  }
+  return null;
+}
 
 export type RenderTargets = {
   codex: boolean;
@@ -410,6 +456,61 @@ export async function applyRules(args: {
     written.push(file.path);
   }
   return { written };
+}
+
+/**
+ * Render rules and apply them in a single operation.
+ * The content never passes through the AI host, preventing truncation.
+ */
+export async function renderAndApplyRules(args: {
+  repoPath: string;
+  pack?: string;
+  overrides?: string;
+  targets: RenderTargets;
+  policy?: RenderPolicy;
+  mode?: "safe" | "force";
+}): Promise<{ rendered: GeneratedFile[]; written: string[]; diff: string }> {
+  const files = await renderRules({
+    repoPath: args.repoPath,
+    pack: args.pack,
+    overrides: args.overrides,
+    targets: args.targets,
+    policy: args.policy
+  });
+
+  const diffResult = await diffRules({ repoPath: args.repoPath, files });
+
+  const { written } = await applyRules({
+    repoPath: args.repoPath,
+    files,
+    mode: args.mode ?? "force"
+  });
+
+  return {
+    rendered: files.map(f => ({ path: f.path, content: `[${f.content.length} chars]` })),
+    written,
+    diff: diffResult
+  };
+}
+
+/**
+ * Apply previously rendered rules using an artifact ID.
+ * The artifact was stored server-side during render_rules.
+ */
+export async function applyRenderedRules(args: {
+  repoPath: string;
+  artifactId: string;
+  mode?: "safe" | "force";
+}): Promise<{ written: string[] }> {
+  const files = consumeArtifact(args.artifactId);
+  if (!files) {
+    throw new Error(`Artifact not found or expired: ${args.artifactId}. Re-run render_rules to generate a new artifact.`);
+  }
+  return applyRules({
+    repoPath: args.repoPath,
+    files,
+    mode: args.mode ?? "force"
+  });
 }
 
 export { getPack, listPacks };

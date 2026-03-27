@@ -1,6 +1,7 @@
 import { readFileSafe, listFilesSafe } from "@rulesmith/core";
 import {
   applyRules,
+  applyRenderedRules,
   bootstrapRules,
   buildEvidenceBundle,
   detectRepoScopes,
@@ -8,8 +9,10 @@ import {
   getPack,
   listPacks,
   renderRules,
+  renderAndApplyRules,
   sampleRepo,
-  scanRepo
+  scanRepo,
+  storeArtifact
 } from "@rulesmith/core";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
@@ -367,46 +370,98 @@ async function start() {
     }
   );
 
+  const renderTargetsSchema = z.object({
+    codex: z.boolean().optional(),
+    copilot: z.boolean().optional(),
+    claude: z.boolean().optional(),
+    junie: z.boolean().optional(),
+    gemini: z.boolean().optional(),
+    antigravity: z.boolean().optional()
+  });
+
+  const renderPolicySchema = z
+    .object({
+      strictness: z.enum(["baseline", "strict", "very-strict"]).optional(),
+      standards: z.enum(["auto", "project-only", "project-plus-standard"]).optional(),
+      copilotProfile: z.enum(["short", "strict"]).optional(),
+      claudeProfile: z.enum(["short", "strict"]).optional(),
+      junieProfile: z.enum(["short", "strict"]).optional(),
+      geminiProfile: z.enum(["short", "strict"]).optional(),
+      antigravityProfile: z.enum(["short", "strict"]).optional()
+    })
+    .optional();
+
+  const normalizeTargets = (targets: Record<string, boolean | undefined>) => ({
+    codex: targets.codex ?? false,
+    copilot: targets.copilot ?? false,
+    claude: targets.claude ?? false,
+    junie: targets.junie ?? false,
+    gemini: targets.gemini ?? false,
+    antigravity: targets.antigravity ?? false
+  });
+
   registerTool(
     "render_rules",
     {
       repoPath: z.string().optional(),
       pack: z.string().optional(),
       overrides: z.string().optional(),
-      targets: z.object({
-        codex: z.boolean().optional(),
-        copilot: z.boolean().optional(),
-        claude: z.boolean().optional(),
-        junie: z.boolean().optional(),
-        gemini: z.boolean().optional(),
-        antigravity: z.boolean().optional()
-      }),
-      policy: z
-        .object({
-          strictness: z.enum(["baseline", "strict", "very-strict"]).optional(),
-          standards: z.enum(["auto", "project-only", "project-plus-standard"]).optional(),
-          copilotProfile: z.enum(["short", "strict"]).optional(),
-          claudeProfile: z.enum(["short", "strict"]).optional(),
-          junieProfile: z.enum(["short", "strict"]).optional(),
-          geminiProfile: z.enum(["short", "strict"]).optional(),
-          antigravityProfile: z.enum(["short", "strict"]).optional()
-        })
-        .optional()
+      targets: renderTargetsSchema,
+      policy: renderPolicySchema,
+      includeContent: z.boolean().optional()
     },
-    async ({ repoPath, pack, overrides, targets, policy }) =>
-      renderRules({
+    async ({ repoPath, pack, overrides, targets, policy, includeContent }) => {
+      const files = await renderRules({
         repoPath: path.resolve(repoPath ?? process.cwd()),
         pack,
         overrides,
-        targets: {
-          codex: targets.codex ?? false,
-          copilot: targets.copilot ?? false,
-          claude: targets.claude ?? false,
-          junie: targets.junie ?? false,
-          gemini: targets.gemini ?? false,
-          antigravity: targets.antigravity ?? false
-        },
+        targets: normalizeTargets(targets),
         policy
+      });
+      const artifactId = storeArtifact(files);
+      // When includeContent is false (default), return summaries to avoid large payload relay.
+      // Use artifactId with apply_rendered_rules for truncation-safe apply.
+      if (includeContent) {
+        return { files, artifactId };
+      }
+      const summaries = files.map(f => ({ path: f.path, chars: f.content.length }));
+      return { files: summaries, artifactId };
+    }
+  );
+
+  registerTool(
+    "apply_rendered_rules",
+    {
+      repoPath: z.string().optional(),
+      artifactId: z.string(),
+      mode: z.enum(["safe", "force"]).optional()
+    },
+    async ({ repoPath, artifactId, mode }) =>
+      applyRenderedRules({
+        repoPath: path.resolve(repoPath ?? process.cwd()),
+        artifactId,
+        mode
+      })
+  );
+
+  registerTool(
+    "render_and_apply",
+    {
+      repoPath: z.string().optional(),
+      pack: z.string().optional(),
+      overrides: z.string().optional(),
+      targets: renderTargetsSchema,
+      policy: renderPolicySchema,
+      mode: z.enum(["safe", "force"]).optional()
+    },
+    async ({ repoPath, pack, overrides, targets, policy, mode }) =>
+      renderAndApplyRules({
+        repoPath: path.resolve(repoPath ?? process.cwd()),
+        pack,
+        overrides,
+        targets: normalizeTargets(targets),
+        policy,
+        mode
       })
   );
 
