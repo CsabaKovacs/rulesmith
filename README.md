@@ -105,19 +105,39 @@ What to do:
   focus="generic", maxFiles=1200, includeContent=false
 - Expand evidence with list_files/search/read_files for key areas before finalizing rules.
 
-5) Generate and apply rule files with target batching
+5) Generate baseline rule files
 - Build batches from `<TARGETS_CSV>` using `<TARGET_BATCH_SIZE>` (recommended 1-2 targets per batch).
-- For each batch, run:
-  - render_rules with batch targets and policy:
-    { strictness: "very-strict", standards: "project-plus-standard" }
-  - diff_rules for the returned files and show only concise diff summary.
-  - if diff is valid and `files` is non-empty, apply_rules with mode="safe".
-- If batch render still overloads/truncates:
-  - retry with smaller batch size (down to 1 target),
-  - continue until every selected target is processed.
-- If MCP generation repeatedly truncates, switch render/diff/apply to rulesmith CLI with the same policy and target batches.
+- For each batch, run render_and_apply with batch targets and policy:
+  { strictness: "very-strict", standards: "project-plus-standard" }
+  mode: "force"
+- This creates template-based baseline rule files with evidence from the scanner.
+- If render_and_apply is not available, fall back to: render_rules → apply_rendered_rules (using artifactId).
+- If neither artifact tool is available, fall back to: render_rules(includeContent=true) → apply_rules.
 
-6) Validate outputs in target repo for selected targets only
+6) AI enrichment pass (MANDATORY — this is where the real value is)
+- For EACH scope and EACH generated rule file:
+  a) Read the baseline rule file that was just written (e.g., admin/CLAUDE.md).
+  b) Read 5-10 key project files to understand actual patterns:
+     - 2-3 representative controllers (look for validation, error handling, transaction patterns)
+     - 1-2 route files (look for middleware, permission guards, naming conventions)
+     - 1-2 model files (look for relationships, scopes, casts)
+     - config files relevant to the scope (auth, api, services)
+     - package.json / composer.json for dependency context
+  c) Based on what you found, REWRITE the rule file to include:
+     - Project-specific architectural patterns you observed (not generic template text)
+     - Concrete file references as evidence for each convention
+     - Specific naming patterns, error handling styles, and code organization rules
+     - Any anti-patterns or legacy code that should be explicitly flagged
+     - Middleware and permission patterns unique to this scope
+  d) PRESERVE these sections exactly as they are in the baseline (do not modify or remove):
+     - "Post-Change Review Workflow (MANDATORY)" section — keep every bullet point
+     - "Execution Contract" with the BINDING clause
+     - "Guardrails" with forbidden paths
+     - "UNKNOWN/TODO" section
+  e) Write the enriched file using the Edit tool (not apply_rules — you are the author now).
+  f) Keep the enriched file under ~15KB to avoid context window issues for future AI sessions.
+
+7) Validate outputs in target repo for selected targets only
 Use this mapping:
 - codex -> AGENTS.md
 - claude -> CLAUDE.md
@@ -126,7 +146,7 @@ Use this mapping:
 - junie -> .junie/guidelines.md
 - antigravity -> .agent/rules/rulesmith.instructions.md
 
-7) Final report (required)
+8) Final report (required)
 Return a concise report with:
 - Installed path of rulesmith
 - MCP registration status
