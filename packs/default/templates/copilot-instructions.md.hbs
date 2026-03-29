@@ -7,6 +7,7 @@
 - Cite concrete evidence files when asserting project behavior.
 - Prefer existing project tooling and scripts.
 - Require alignment with repository conventions before introducing any new pattern.
+- Keep changes reviewable and scoped: prefer the smallest behavior-safe diff that fits the touched boundary.
 - If confidence is low, keep UNKNOWN/TODO explicit instead of guessing.
 - strictness: `{{policy.strictness}}`
 - standards: `{{policy.standards}}`
@@ -65,10 +66,12 @@ Notes:
 {{else}}
 ## Execution Contract
 - **BINDING**: This rulebook is mandatory. Every rule, convention, and workflow defined here MUST be followed without exception.
+- Use evidence-first behavior: every non-trivial claim or new convention must stay tied to concrete repository evidence.
+- Enforce repository conventions first; do not replace a strong local pattern with generic best-practice text.
+- Keep changes reviewable and scoped: prefer the smallest behavior-safe diff that fits the touched boundary.
 - strictness: `{{policy.strictness}}`
 - standards: `{{policy.standards}}`
 - profile: `short`
-- Keep edits small and evidence-backed.
 
 ## Setup
 - install: `{{#if buildCommands.install}}{{buildCommands.install}}{{else}}UNKNOWN{{/if}}`

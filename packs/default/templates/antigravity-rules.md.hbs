@@ -5,6 +5,7 @@
 - **BINDING**: This rulebook is mandatory. Every rule, convention, and workflow defined here MUST be followed without exception. Skipping, ignoring, or partially applying rules is a violation. If a rule conflicts with your default behavior, the rulebook takes precedence.
 - Use strict evidence-first behavior: every non-trivial claim must cite concrete files from this repository.
 - Enforce repository conventions before introducing new patterns.
+- Keep changes reviewable and scoped: prefer the smallest behavior-safe diff that fits the touched boundary.
 - strictness: `{{policy.strictness}}`
 - standards: `{{policy.standards}}`
 - profile: `strict`
@@ -62,10 +63,12 @@ Notes:
 {{else}}
 ## Execution Contract
 - **BINDING**: This rulebook is mandatory. Every rule, convention, and workflow defined here MUST be followed without exception.
+- Use evidence-first behavior: every non-trivial claim or new convention must stay tied to concrete repository evidence.
+- Enforce repository conventions first; do not replace a strong local pattern with generic best-practice text.
+- Keep changes reviewable and scoped: prefer the smallest behavior-safe diff that fits the touched boundary.
 - strictness: `{{policy.strictness}}`
 - standards: `{{policy.standards}}`
 - profile: `short`
-- Keep edits minimal and evidence-backed.
 
 ## Setup
 - install: `{{#if buildCommands.install}}{{buildCommands.install}}{{else}}UNKNOWN{{/if}}`

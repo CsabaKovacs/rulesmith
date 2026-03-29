@@ -11,6 +11,9 @@ applyTo: "{{area.applyTo}}"
 {{#if copilotStrict}}
 ## Area Execution Contract
 - **BINDING**: This rulebook is mandatory. Every rule and workflow defined here MUST be followed without exception.
+- Use evidence-first behavior: every non-trivial claim or new convention must stay tied to concrete repository evidence.
+- Enforce repository conventions first; do not replace a strong local pattern with generic best-practice text.
+- Keep changes reviewable and scoped: prefer the smallest behavior-safe diff that fits the touched boundary.
 - Area scope: `{{area.applyTo}}`
 - strictness: `{{policy.strictness}}`
 - standards: `{{policy.standards}}`
@@ -38,6 +41,9 @@ applyTo: "{{area.applyTo}}"
 {{else}}
 ## Area Execution Contract
 - **BINDING**: This rulebook is mandatory. Every rule defined here MUST be followed without exception.
+- Use evidence-first behavior: every non-trivial claim or new convention must stay tied to concrete repository evidence.
+- Enforce repository conventions first; do not replace a strong local pattern with generic best-practice text.
+- Keep changes reviewable and scoped: prefer the smallest behavior-safe diff that fits the touched boundary.
 - Area scope: `{{area.applyTo}}`
 - strictness: `{{policy.strictness}}`
 - standards: `{{policy.standards}}`
