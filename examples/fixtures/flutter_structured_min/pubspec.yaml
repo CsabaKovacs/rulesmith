@@ -1,0 +1,15 @@
+name: flutter_structured_min
+description: Structured Flutter fixture for boundary extraction.
+publish_to: 'none'
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0

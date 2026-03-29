@@ -133,6 +133,20 @@ async function readTextSafe(repoRoot: string, relPath: string): Promise<string |
   return readFileSafe(repoRoot, relPath, 1_000_000);
 }
 
+async function readYamlSafe(repoRoot: string, relPath: string): Promise<Record<string, unknown> | undefined> {
+  const raw = await readTextSafe(repoRoot, relPath);
+  if (!raw) return undefined;
+  try {
+    const parsed = yaml.load(raw) as unknown;
+    if (parsed && typeof parsed === "object") {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    return undefined;
+  }
+  return undefined;
+}
+
 function confidenceFromSignals(matched: number, total: number): number {
   if (total === 0) return 0;
   return Number((matched / total).toFixed(2));
@@ -184,16 +198,29 @@ function depVersions(manifest: Record<string, unknown> | undefined): Record<stri
 }
 
 async function detectLaravel(repoRoot: string): Promise<{ framework?: WeightedEvidence; language?: WeightedEvidence }> {
-  const checks = ["composer.json", "artisan", "routes", "app"];
+  const composer = await readJsonSafe(repoRoot, "composer.json");
+  const requireMap = (composer?.require as Record<string, unknown> | undefined) ?? {};
+  const laravelDeps = Object.keys(requireMap).filter((name) => /^laravel\/|^illuminate\//.test(name));
+  const routeFiles = await listFilesSafe({ repoRoot, glob: "routes/**/*.php", max: 12 });
+  const controllerFiles = await listFilesSafe({ repoRoot, glob: "app/**/*.php", max: 12 });
+
   const evidence: string[] = [];
-
-  for (const item of checks) {
-    if (await exists(repoRoot, item)) evidence.push(item);
+  if (composer) evidence.push("composer.json");
+  if (await exists(repoRoot, "artisan")) evidence.push("artisan");
+  if (laravelDeps.length > 0) {
+    evidence.push(...laravelDeps.slice(0, 3).map((name) => `composer.json#require.${name}`));
   }
+  if (routeFiles.length > 0) evidence.push(...routeFiles.slice(0, 3));
+  if (controllerFiles.length > 0) evidence.push(...controllerFiles.slice(0, 3));
 
-  if (evidence.length === 0) return {};
+  const strongSignals = Number(Boolean(composer)) + Number(laravelDeps.length > 0) + Number(routeFiles.length > 0) + Number(await exists(repoRoot, "artisan"));
+  if (strongSignals < 2) return {};
 
-  const confidence = confidenceFromSignals(evidence.length, checks.length);
+  const confidence = clampConfidence(
+    laravelDeps.length > 0
+      ? Math.max(0.75, confidenceFromSignals(strongSignals + Math.min(controllerFiles.length, 2), 6))
+      : Math.max(0.55, confidenceFromSignals(strongSignals + Math.min(controllerFiles.length, 2), 6))
+  );
   return {
     framework: { name: "laravel", confidence, evidence: [...evidence] },
     language: { name: "php", confidence: Math.max(confidence, 0.7), evidence: [...evidence] }
@@ -230,15 +257,26 @@ async function detectNodeTs(repoRoot: string): Promise<{ framework?: WeightedEvi
 }
 
 async function detectFlutter(repoRoot: string): Promise<{ framework?: WeightedEvidence; language?: WeightedEvidence }> {
-  const checks = ["pubspec.yaml", "analysis_options.yaml", "lib", ".dart_tool"];
+  const pubspec = await readYamlSafe(repoRoot, "pubspec.yaml");
+  const dependencies = (pubspec?.dependencies as Record<string, unknown> | undefined) ?? {};
+  const devDependencies = (pubspec?.dev_dependencies as Record<string, unknown> | undefined) ?? {};
+  const hasFlutterDep = typeof dependencies.flutter === "object" || typeof devDependencies.flutter_test === "object" || Boolean(pubspec?.flutter);
+  const dartFiles = await listFilesSafe({ repoRoot, glob: "{lib,test,bin,tool}/**/*.dart", max: 16 });
   const evidence: string[] = [];
-  for (const item of checks) {
-    if (await exists(repoRoot, item)) evidence.push(item);
-  }
+  if (pubspec) evidence.push("pubspec.yaml");
+  if (await exists(repoRoot, "analysis_options.yaml")) evidence.push("analysis_options.yaml");
+  if (hasFlutterDep) evidence.push("pubspec.yaml#dependencies.flutter");
+  if (await exists(repoRoot, "lib/main.dart")) evidence.push("lib/main.dart");
+  if (dartFiles.length > 0) evidence.push(...dartFiles.slice(0, 4));
 
-  if (evidence.length === 0) return {};
+  const strongSignals = Number(Boolean(pubspec)) + Number(hasFlutterDep) + Number(dartFiles.length > 0) + Number(await exists(repoRoot, "lib/main.dart"));
+  if (strongSignals < 2) return {};
 
-  const confidence = confidenceFromSignals(evidence.length, checks.length);
+  const confidence = clampConfidence(
+    hasFlutterDep
+      ? Math.max(0.75, confidenceFromSignals(strongSignals + Math.min(dartFiles.length, 3), 7))
+      : Math.max(0.55, confidenceFromSignals(strongSignals + Math.min(dartFiles.length, 3), 7))
+  );
   return {
     framework: { name: "flutter", confidence, evidence: [...evidence] },
     language: { name: "dart", confidence: Math.max(confidence, 0.7), evidence: [...evidence] }

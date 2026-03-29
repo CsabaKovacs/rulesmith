@@ -48,4 +48,30 @@ describe("scanner", () => {
     expect(langs.has("javascript")).toBe(true);
     expect(langs.has("go")).toBe(true);
   });
+
+  it("does not emit false laravel or flutter signals for a noisy Next repository", async () => {
+    const repo = path.join(root, "next_noisy_realish_min");
+    const profile = await scanRepo(repo);
+
+    const frameworks = new Set(profile.frameworks.map((x) => x.name));
+    const languages = new Set(profile.languages.map((x) => x.name));
+
+    expect(frameworks.has("nextjs")).toBe(true);
+    expect(frameworks.has("laravel")).toBe(false);
+    expect(frameworks.has("flutter")).toBe(false);
+    expect(languages.has("typescript")).toBe(true);
+    expect(languages.has("php")).toBe(false);
+    expect(languages.has("dart")).toBe(false);
+  });
+
+  it("requires real Dart and pubspec evidence before claiming Flutter", async () => {
+    const repo = path.join(root, "flutter_noisy_realish_min");
+    const profile = await scanRepo(repo);
+
+    const flutter = profile.frameworks.find((x) => x.name === "flutter");
+    const dart = profile.languages.find((x) => x.name === "dart");
+    expect(flutter?.confidence).toBeGreaterThanOrEqual(0.75);
+    expect(flutter?.evidence.join(" ")).toMatch(/pubspec\.yaml/);
+    expect(dart?.evidence.join(" ")).toMatch(/main\.dart|pubspec\.yaml/);
+  });
 });

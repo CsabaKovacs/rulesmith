@@ -311,9 +311,10 @@ async function renderRulesForProfile(args: {
   if (!args.profile.build.commands.build) unknowns.push("Build command is not confidently detected.");
 
   const rulebook = await buildRulebook(args.profile, policy);
+  const mergedUnknowns = [...new Set([...unknowns, ...rulebook.unknowns])];
 
   const context = toTemplateContext(args.profile, {
-    unknowns,
+    unknowns: mergedUnknowns,
     snippets: decision.snippets,
     areas: decision.areaInstructions,
     rulebook,

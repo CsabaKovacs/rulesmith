@@ -1,0 +1,17 @@
+{
+  "name": "semantic_backend_min",
+  "private": true,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "dev": "tsx src/server.ts"
+  },
+  "dependencies": {
+    "express": "^4.21.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}

@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { listFilesSafe, readFileSafe } from "../fs/safe.js";
 import type { ProjectProfile } from "../profile/schema.js";
+import { extractAstBoundaryConventionCandidates } from "./ast.js";
 
 export type RulebookSection = {
   title: string;
@@ -12,6 +13,7 @@ export type Rulebook = {
   title: string;
   snapshot: string[];
   sections: RulebookSection[];
+  unknowns: string[];
 };
 
 type RulebookPolicy = {
@@ -23,6 +25,10 @@ type JsonMap = Record<string, unknown>;
 
 function dedupe(items: string[]): string[] {
   return [...new Set(items)];
+}
+
+function withTrailingPeriod(text: string): string {
+  return /[.!?`]$/.test(text) ? text : `${text}.`;
 }
 
 const FLUTTER_PLATFORM_FRAMEWORKS = new Set(["android", "ios"]);
@@ -351,6 +357,12 @@ type StackPatternDescriptor = {
   pattern: RegExp;
   pathPattern?: RegExp;
   guidance: string;
+  topic?: string;
+};
+
+type StackConventionDescriptor = {
+  text: string;
+  topic?: string;
 };
 
 type StackSpecializerConfig = {
@@ -359,9 +371,29 @@ type StackSpecializerConfig = {
   frameworkNames?: string[];
   languageNames?: string[];
   intro: string;
-  standards: string[];
-  antiPatterns: string[];
+  standards: Array<string | StackConventionDescriptor>;
+  antiPatterns: Array<string | StackConventionDescriptor>;
   patterns: StackPatternDescriptor[];
+};
+
+type ConventionCandidate = {
+  topic: string;
+  source: "repo" | "standard" | "anti-pattern";
+  text: string;
+  evidence: string[];
+};
+
+type BoundaryDescriptor = {
+  topic: string;
+  pattern: RegExp;
+  text: string;
+};
+
+type SemanticBoundaryDescriptor = {
+  topic: string;
+  pathPattern?: RegExp;
+  contentPattern: RegExp;
+  text: string;
 };
 
 const LANGUAGE_PATTERNS: Record<string, LanguagePatternDescriptor[]> = {
@@ -519,6 +551,476 @@ function profileEvidenceForNames(profile: ProjectProfile, frameworkNames: string
     ...profile.languages.filter((language) => languageNames.includes(language.name)).flatMap((language) => language.evidence)
   ];
   return dedupe(evidence).slice(0, 8);
+}
+
+function inferConventionTopic(text: string): string {
+  const normalized = text.toLowerCase();
+  if (/\b(route|router|routing|page|screen navigation|route handler)\b/.test(normalized)) return "routing";
+  if (/\b(state|store|context|reducer|viewmodel|changeNotifier|bloc|riverpod|pinia|composable)\b/.test(normalized)) return "state";
+  if (/\b(test|spec|xctest|widget test|testing)\b/.test(normalized)) return "testing";
+  if (/\b(validation|schema|dto|serializer|formrequest|request validation)\b/.test(normalized)) return "validation";
+  if (/\b(async|await|future|coroutine|task|lifecycle|side-effect)\b/.test(normalized)) return "async";
+  if (/\b(service|repository|persistence|data|transport|rpc|query|database|orm)\b/.test(normalized)) return "data";
+  if (/\b(component|widget|template|ui|view|compose|swiftui|uikit)\b/.test(normalized)) return "ui";
+  if (/\b(module|dependency injection|di|provider|configuration|host|bootstrap)\b/.test(normalized)) return "architecture";
+  if (/\b(permission|auth|authorization|middleware|guard)\b/.test(normalized)) return "security";
+  return "general";
+}
+
+function renderCandidate(candidate: ConventionCandidate): string {
+  switch (candidate.source) {
+    case "repo":
+      return `Repository-specific convention (${candidate.topic}): ${candidate.text}`;
+    case "standard":
+      return `Compatible standards overlay (${candidate.topic}): ${candidate.text}`;
+    case "anti-pattern":
+      return `Avoid (${candidate.topic}): ${candidate.text}`;
+  }
+}
+
+function mergeConventionCandidates(candidates: ConventionCandidate[]): ConventionCandidate[] {
+  const orderedTopics: string[] = [];
+  const seenTopicOrder = new Set<string>();
+  for (const candidate of candidates) {
+    if (seenTopicOrder.has(candidate.topic)) continue;
+    seenTopicOrder.add(candidate.topic);
+    orderedTopics.push(candidate.topic);
+  }
+
+  const sourceOrder: ConventionCandidate["source"][] = ["repo", "standard", "anti-pattern"];
+  const merged: ConventionCandidate[] = [];
+  const repoTopics = new Set(candidates.filter((candidate) => candidate.source === "repo").map((candidate) => candidate.topic));
+
+  for (const topic of orderedTopics) {
+    for (const source of sourceOrder) {
+      const seenTexts = new Set<string>();
+      let keptForTopic = 0;
+      for (const candidate of candidates) {
+        if (candidate.topic !== topic || candidate.source !== source) continue;
+        if (seenTexts.has(candidate.text)) continue;
+        if (source === "standard" && repoTopics.has(topic) && keptForTopic >= 1) continue;
+        if (source === "anti-pattern" && keptForTopic >= 1) continue;
+        seenTexts.add(candidate.text);
+        merged.push(candidate);
+        keptForTopic += 1;
+      }
+    }
+  }
+
+  return merged;
+}
+
+const GENERIC_BOUNDARY_DESCRIPTORS: BoundaryDescriptor[] = [
+  {
+    topic: "routing",
+    pattern: /(^|\/)(routes?|router|navigation)\//i,
+    text: "Routing and flow-entry files already live in dedicated route/navigation boundaries; extend those files or nearby modules instead of scattering flow control into unrelated layers."
+  },
+  {
+    topic: "data",
+    pattern: /(^|\/)(services?|data|repositories?|api|clients?|auth)\//i,
+    text: "Data, transport, or service code is already isolated in dedicated service/data boundaries; preserve that split before adding new infrastructure calls to UI or handler files."
+  },
+  {
+    topic: "state",
+    pattern: /(^|\/)(state|store|stores|viewmodels?|reducers?|bloc|blocs)\//i,
+    text: "Shared mutable state already has an explicit boundary; extend that existing state layer before introducing a parallel state mechanism."
+  },
+  {
+    topic: "ui",
+    pattern: /(^|\/)(screens?|pages|views|components|widgets|ui)\//i,
+    text: "Route-level UI and reusable presentation pieces already have dedicated boundaries; keep feature work aligned with those files instead of mixing presentation with service logic."
+  },
+  {
+    topic: "validation",
+    pattern: /(^|\/)(dto|dtos|schemas?|serializers?|forms?|requests?|validation|validators?)\//i,
+    text: "Validation and contract objects already live in dedicated request/schema boundaries; preserve those contracts rather than inlining validation everywhere."
+  },
+  {
+    topic: "testing",
+    pattern: /(^|\/)(tests?|__tests__|specs?)\//i,
+    text: "The repository already separates automated verification into dedicated test boundaries; extend the nearest existing test style for touched behavior."
+  },
+  {
+    topic: "localization",
+    pattern: /(^|\/)(localization|i18n|l10n|lang|translations)\//i,
+    text: "Localized copy/resources already have a dedicated boundary; route new user-facing text through that localization layer instead of hardcoding it inline."
+  },
+  {
+    topic: "theme",
+    pattern: /(^|\/)(theme|styles?)\//i,
+    text: "Theme or shared styling is already centralized; preserve that styling boundary instead of duplicating tokens or visual constants across feature files."
+  },
+  {
+    topic: "database",
+    pattern: /(^|\/)(migrations?|schema|entities|models)\//i,
+    text: "Persistence structure is already expressed through dedicated model or migration boundaries; keep schema and model changes aligned with those files."
+  }
+];
+
+const FRAMEWORK_BOUNDARY_DESCRIPTORS: Record<string, BoundaryDescriptor[]> = {
+  flutter: [
+    {
+      topic: "ui",
+      pattern: /(^|\/)(screens|widgets)\//i,
+      text: "Flutter route-level screens and reusable widgets already live in distinct folders; preserve that UI split when extending features."
+    },
+    {
+      topic: "state",
+      pattern: /(^|\/)(state)\//i,
+      text: "Flutter app state already has a dedicated state boundary; extend that controller/notifier layer before introducing a parallel state stack."
+    },
+    {
+      topic: "data",
+      pattern: /(^|\/)(auth|data|services?)\//i,
+      text: "Flutter backend/auth/data access is already pushed into dedicated service layers; keep RPC, auth, and persistence access there."
+    }
+  ],
+  react: [
+    {
+      topic: "ui",
+      pattern: /(^|\/)(components|pages|app)\//i,
+      text: "React view composition already follows dedicated component/page boundaries; keep rendering concerns there and avoid pushing cross-cutting logic into presentational files."
+    }
+  ],
+  nextjs: [
+    {
+      topic: "routing",
+      pattern: /(^|\/)(app|pages)\//i,
+      text: "Next.js routing boundaries are already expressed through app/pages directories; preserve that route ownership rather than mixing route logic into shared utilities."
+    }
+  ],
+  express: [
+    {
+      topic: "routing",
+      pattern: /(^|\/)(routes?|controllers?)\//i,
+      text: "Request routing and handler boundaries are already explicit; keep new endpoints aligned with the existing route/controller split."
+    },
+    {
+      topic: "data",
+      pattern: /(^|\/)(services?|repositories?|models)\//i,
+      text: "Business logic and persistence already have dedicated backend boundaries; keep handlers thin and reuse those services or models."
+    }
+  ],
+  nest: [
+    {
+      topic: "architecture",
+      pattern: /(^|\/)(modules?|controllers?|services?|dto)\//i,
+      text: "Nest module/controller/service/DTO boundaries are already explicit; preserve that DI-driven layering rather than collapsing responsibilities together."
+    }
+  ],
+  fastapi: [
+    {
+      topic: "routing",
+      pattern: /(^|\/)(routers?|api)\//i,
+      text: "FastAPI route registration already has an API/router boundary; keep endpoint wiring there and avoid mixing it into persistence modules."
+    },
+    {
+      topic: "validation",
+      pattern: /(^|\/)(schemas?|models)\//i,
+      text: "FastAPI request/response schema boundaries are already explicit; preserve those typed contracts for touched endpoints."
+    }
+  ],
+  django: [
+    {
+      topic: "architecture",
+      pattern: /(^|\/)(views?|models|serializers|forms|migrations)\//i,
+      text: "Django app boundaries are already expressed through conventional view/model/serializer or form layers; extend those instead of inventing alternate feature structure."
+    }
+  ],
+  "spring-boot": [
+    {
+      topic: "architecture",
+      pattern: /(^|\/)(controller|controllers|service|services|repository|repositories|config)\//i,
+      text: "Spring layering is already explicit through controller/service/repository or config packages; preserve those boundaries when adding new behavior."
+    }
+  ],
+  aspnet: [
+    {
+      topic: "architecture",
+      pattern: /(^|\/)(controllers?|services?|repositories?|models)\//i,
+      text: "ASP.NET application structure already separates endpoint, service, and domain boundaries; preserve that layering in touched areas."
+    }
+  ],
+  android: [
+    {
+      topic: "ui",
+      pattern: /(^|\/)(ui|presentation)\//i,
+      text: "Android UI code already has a dedicated presentation boundary; keep screens and rendering concerns there rather than mixing in data access."
+    },
+    {
+      topic: "state",
+      pattern: /(^|\/)(viewmodel|viewmodels|state)\//i,
+      text: "Android state ownership is already separated into explicit state or ViewModel boundaries; extend that layer before introducing a competing flow."
+    }
+  ],
+  ios: [
+    {
+      topic: "ui",
+      pattern: /(^|\/)(views?|screens?|coordinators?)\//i,
+      text: "iOS UI and navigation ownership already has dedicated boundaries; keep screen/coordinator responsibilities aligned with those files."
+    },
+    {
+      topic: "testing",
+      pattern: /(^|\/)(tests?)\//i,
+      text: "iOS verification already has an XCTest boundary; extend those tests for touched user flows and module behavior."
+    }
+  ]
+};
+
+function extractBoundaryConventionCandidates(frameworkKey: string, files: string[]): ConventionCandidate[] {
+  const descriptors = [
+    ...(FRAMEWORK_BOUNDARY_DESCRIPTORS[frameworkKey] ?? []),
+    ...GENERIC_BOUNDARY_DESCRIPTORS
+  ];
+  const candidates: ConventionCandidate[] = [];
+  const seen = new Set<string>();
+
+  for (const descriptor of descriptors) {
+    const evidence = files.filter((file) => descriptor.pattern.test(file)).slice(0, 4);
+    if (evidence.length === 0) continue;
+    const key = `${descriptor.topic}:${descriptor.text}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    candidates.push({
+      topic: descriptor.topic,
+      source: "repo",
+      text: descriptor.text,
+      evidence
+    });
+  }
+
+  return candidates;
+}
+
+const GENERIC_SEMANTIC_BOUNDARY_DESCRIPTORS: SemanticBoundaryDescriptor[] = [
+  {
+    topic: "data",
+    contentPattern: /\bclass\s+[A-Za-z0-9_]*(Service|Repository|Client|Gateway)\b|\binterface\s+[A-Za-z0-9_]*(Service|Repository|Client|Gateway)\b/,
+    text: "Repository code already defines explicit service/repository/client boundaries in code symbols; preserve those named boundaries instead of bypassing them from unrelated layers."
+  },
+  {
+    topic: "routing",
+    contentPattern: /\bRouter\(|\bAPIRouter\b|urlpatterns|Map(Get|Post|Put|Patch|Delete)\(|MaterialPageRoute|Navigator\.|createRouter\(/,
+    text: "Routing and navigation behavior is already explicit in code-level router/navigation APIs; preserve the same flow entrypoints and avoid inventing alternate routing styles in the same repo."
+  },
+  {
+    topic: "state",
+    contentPattern: /\b(ChangeNotifier|ViewModel|StateFlow|LiveData|useReducer|defineStore|Bloc|Riverpod|Reducer<)\b/,
+    text: "State ownership is already encoded through explicit state-holder abstractions in code; extend those abstractions before introducing a parallel state mechanism."
+  },
+  {
+    topic: "validation",
+    contentPattern: /\b(BaseModel|Serializer|FormRequest|ValidationPipe|class-validator|zod|joi|yup|Field\()|\brequest->validate\b/,
+    text: "Validation/contracts are already represented through explicit schema or validator constructs; reuse those typed/request-boundary patterns instead of ad-hoc inline validation."
+  },
+  {
+    topic: "testing",
+    contentPattern: /(@Test\b|XCTestCase|testWidgets\(|describe\(|RSpec\.describe|pytest|Test\.createTestingModule|\[(Fact|Theory|Test)\])/,
+    text: "Automated verification style is already visible in code-level test constructs; extend that existing test harness instead of inventing a second one."
+  }
+];
+
+const FRAMEWORK_SEMANTIC_BOUNDARY_DESCRIPTORS: Record<string, SemanticBoundaryDescriptor[]> = {
+  react: [
+    {
+      topic: "state",
+      pathPattern: /\.(tsx|jsx|ts|js)$/,
+      contentPattern: /\buse(State|Reducer|Context|Transition|DeferredValue|SyncExternalStore)\b|\bcreateContext\b/,
+      text: "React state and lifecycle ownership is already visible through hooks and context constructs in code; preserve that composition model within the touched feature."
+    },
+    {
+      topic: "testing",
+      pathPattern: /\.(test|spec)\.(tsx|jsx|ts|js)$/,
+      contentPattern: /@testing-library\/react|render\(|screen\./,
+      text: "React UI verification already follows a component-test harness; extend the same rendering and assertion style for touched flows."
+    }
+  ],
+  nextjs: [
+    {
+      topic: "routing",
+      pathPattern: /(^|\/)(app|pages|middleware|src\/app|src\/pages)\/.*\.(tsx|jsx|ts|js)$|middleware\.(ts|js)$/,
+      contentPattern: /generateMetadata|getServerSideProps|getStaticProps|export\s+(async\s+)?function\s+(GET|POST|PUT|PATCH|DELETE)|NextResponse/,
+      text: "Next.js routing, metadata, middleware, and route-handler behavior is already explicit in framework entrypoints; keep route ownership in those boundaries."
+    },
+    {
+      topic: "data",
+      pathPattern: /\.(tsx|jsx|ts|js)$/,
+      contentPattern: /['"]use server['"]|revalidate(Path|Tag)|unstable_cache|cookies\(|headers\(/,
+      text: "Next.js data and server-only behavior is already separated through server entrypoints or server-only APIs; preserve that split instead of leaking it into client UI files."
+    }
+  ],
+  express: [
+    {
+      topic: "routing",
+      pathPattern: /\.(ts|js)$/,
+      contentPattern: /\bexpress\(\)|\bRouter\(\)|\.(get|post|put|patch|delete)\s*\(/,
+      text: "Express request flow is already anchored in router and handler registration calls; keep endpoint ownership there and leave business logic to downstream layers."
+    },
+    {
+      topic: "validation",
+      pathPattern: /\.(ts|js)$/,
+      contentPattern: /\bzod\b|\bjoi\b|\bexpress-validator\b|\bvalidate\(/,
+      text: "Express input validation is already explicit in validator/schema constructs; preserve those request-boundary checks instead of scattering ad-hoc validation."
+    }
+  ],
+  nest: [
+    {
+      topic: "architecture",
+      pathPattern: /\.(ts|js)$/,
+      contentPattern: /@Module\b|@Controller\b|@Injectable\b|NestFactory\.create/,
+      text: "NestJS module/controller/provider boundaries are already explicit through decorators and bootstrap wiring; preserve that DI-first layering."
+    },
+    {
+      topic: "validation",
+      pathPattern: /\.(ts|js)$/,
+      contentPattern: /ValidationPipe|class-validator|class-transformer|@Body\(/,
+      text: "NestJS validation and request binding already use decorator or pipe-based contracts; extend that same DTO/pipe style for touched endpoints."
+    }
+  ],
+  fastapi: [
+    {
+      topic: "routing",
+      pathPattern: /\.py$/,
+      contentPattern: /\bAPIRouter\b|@app\.(get|post|put|patch|delete)|@router\.(get|post|put|patch|delete)/,
+      text: "FastAPI endpoint boundaries are already explicit in APIRouter or app route declarations; preserve that endpoint registration style."
+    },
+    {
+      topic: "validation",
+      pathPattern: /\.py$/,
+      contentPattern: /\bBaseModel\b|\bDepends\(|\bField\(/,
+      text: "FastAPI request, dependency, and schema contracts are already encoded in Pydantic or dependency-injection constructs; keep those boundaries explicit."
+    }
+  ],
+  django: [
+    {
+      topic: "architecture",
+      pathPattern: /\.py$/,
+      contentPattern: /\bmodels\.Model\b|\bModelForm\b|\bSerializer\b|\bViewSet\b|urlpatterns/,
+      text: "Django domain boundaries are already visible through model, serializer/form, and view or route constructs; extend the nearest conventional layer instead of inventing alternate structure."
+    }
+  ],
+  "spring-boot": [
+    {
+      topic: "architecture",
+      pathPattern: /\.(java|kt)$/,
+      contentPattern: /@(RestController|Controller|Service|Repository|Configuration)\b/,
+      text: "Spring Boot layering is already encoded through stereotype annotations; preserve controller/service/repository boundaries in touched modules."
+    },
+    {
+      topic: "validation",
+      pathPattern: /\.(java|kt)$/,
+      contentPattern: /@Valid\b|jakarta\.validation|javax\.validation/,
+      text: "Spring request validation is already tied to bean-validation annotations or typed request models; keep validation at those boundaries."
+    }
+  ],
+  aspnet: [
+    {
+      topic: "architecture",
+      pathPattern: /\.cs$/,
+      contentPattern: /ControllerBase|WebApplication\.CreateBuilder|Map(Get|Post|Put|Patch|Delete)\(|IServiceCollection|builder\.Services\./,
+      text: "ASP.NET Core endpoint, DI, and host setup boundaries are already explicit in code; preserve those service and endpoint ownership lines."
+    }
+  ],
+  flutter: [
+    {
+      topic: "routing",
+      pathPattern: /\.dart$/,
+      contentPattern: /\b(MaterialApp|CupertinoApp|GoRouter|MaterialPageRoute|Navigator\.)\b/,
+      text: "Flutter navigation and app-shell ownership is already explicit in app/router code; keep route flow changes inside those navigation boundaries."
+    },
+    {
+      topic: "data",
+      pathPattern: /\.dart$/,
+      contentPattern: /\b(SupabaseClient|Supabase|FirebaseAuth|FirebaseFirestore|Dio|http\.)\b/,
+      text: "Flutter remote/data access is already centralized through explicit SDK or client usage in code; keep those integrations behind the established service boundary."
+    }
+  ],
+  android: [
+    {
+      topic: "ui",
+      pathPattern: /\.(kt|java)$/,
+      contentPattern: /@Composable|setContent\s*\{|Fragment\b|Activity\b/,
+      text: "Android presentation structure is already explicit in Compose or Activity/Fragment entrypoints; preserve the touched feature's existing UI paradigm."
+    },
+    {
+      topic: "state",
+      pathPattern: /\.(kt|java)$/,
+      contentPattern: /\bViewModel\b|\bStateFlow\b|\bLiveData\b|\bNavController\b/,
+      text: "Android state and navigation ownership already flows through ViewModel/state or navigation APIs; extend those boundaries rather than introducing a second coordination model."
+    }
+  ],
+  ios: [
+    {
+      topic: "ui",
+      pathPattern: /\.swift$/,
+      contentPattern: /\bSwiftUI\b|struct\s+[A-Za-z0-9_]+\s*:\s*View|UIViewController|NavigationStack|UINavigationController/,
+      text: "iOS presentation and navigation boundaries are already explicit in SwiftUI or UIKit entrypoints; preserve the touched flow's existing UI paradigm."
+    },
+    {
+      topic: "state",
+      pathPattern: /\.swift$/,
+      contentPattern: /\bObservableObject\b|@Published|@StateObject|@ObservedObject|Task\s*\{/,
+      text: "iOS state and async lifecycle ownership already appears through observable models or async task patterns; keep changes within those existing boundaries."
+    }
+  ]
+};
+
+async function extractSemanticBoundaryConventionCandidates(
+  repoRoot: string,
+  files: string[],
+  frameworkKey?: string
+): Promise<ConventionCandidate[]> {
+  const candidates: ConventionCandidate[] = [];
+  const seen = new Set<string>();
+  const descriptors = [...(frameworkKey ? FRAMEWORK_SEMANTIC_BOUNDARY_DESCRIPTORS[frameworkKey] ?? [] : []), ...GENERIC_SEMANTIC_BOUNDARY_DESCRIPTORS];
+
+  for (const descriptor of descriptors) {
+    const candidateFiles = descriptor.pathPattern ? files.filter((file) => descriptor.pathPattern?.test(file)) : files;
+    const hit = await collectPatternEvidence({
+      repoRoot,
+      files: candidateFiles,
+      pattern: descriptor.contentPattern,
+      maxEvidence: 4
+    });
+    if (hit.count === 0) continue;
+    const key = `${descriptor.topic}:${descriptor.text}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    candidates.push({
+      topic: descriptor.topic,
+      source: "repo",
+      text: descriptor.text,
+      evidence: hit.evidence
+    });
+  }
+
+  return candidates;
+}
+
+async function extractAstConventionCandidates(
+  repoRoot: string,
+  files: string[],
+  frameworkKey?: string
+): Promise<ConventionCandidate[]> {
+  const candidateFiles = files.filter((file) => /\.(tsx|ts|jsx|js|py|php|java|rs|dart|swift|sh|bash|zsh|sql)$/.test(file)).slice(0, 80);
+  if (candidateFiles.length === 0) return [];
+
+  const loaded = (
+    await Promise.all(
+      candidateFiles.map(async (file) => {
+        const content = await readText(repoRoot, file, 128_000);
+        return content ? { path: file, content } : undefined;
+      })
+    )
+  ).filter((item): item is { path: string; content: string } => Boolean(item));
+
+  return (await extractAstBoundaryConventionCandidates({ files: loaded, frameworkKey })).map((candidate) => ({
+    topic: candidate.topic,
+    source: "repo",
+    text: candidate.text,
+    evidence: candidate.evidence
+  }));
 }
 
 const STACK_SPECIALIZERS: StackSpecializerConfig[] = [
@@ -978,6 +1480,11 @@ async function buildHybridStackSections(args: {
     const { config } = item;
     const evidence = profileEvidenceForNames(args.profile, config.frameworkNames, config.languageNames);
     const bullets: string[] = [withEvidence(config.intro, evidence)];
+    const candidates: ConventionCandidate[] = [
+      ...(await extractAstConventionCandidates(args.repoRoot, args.files, config.key)),
+      ...extractBoundaryConventionCandidates(config.key, args.files),
+      ...(await extractSemanticBoundaryConventionCandidates(args.repoRoot, args.files, config.key))
+    ];
 
     let patternMatches = 0;
     for (const descriptor of config.patterns) {
@@ -991,18 +1498,44 @@ async function buildHybridStackSections(args: {
       });
       if (hit.count === 0) continue;
       patternMatches += 1;
-      bullets.push(withEvidence(`${displayFrameworkName(config.key)} repo pattern detected: ${descriptor.label}. ${descriptor.guidance}`, hit.evidence));
+      candidates.push({
+        topic: descriptor.topic ?? inferConventionTopic(`${descriptor.label} ${descriptor.guidance}`),
+        source: "repo",
+        text: `${descriptor.label}. ${descriptor.guidance}`,
+        evidence: hit.evidence
+      });
     }
 
     if (patternMatches === 0) {
-      bullets.push(withEvidence(`No high-signal ${displayFrameworkName(config.key)} sub-pattern was auto-detected beyond stack signals; preserve the touched files' local structure and apply only compatible standards.`, evidence));
+      candidates.push({
+        topic: "general",
+        source: "repo",
+        text: `No high-signal ${displayFrameworkName(config.key)} sub-pattern was auto-detected beyond stack signals; preserve the touched files' local structure and apply only compatible standards.`,
+        evidence
+      });
     }
 
     for (const standard of config.standards) {
-      bullets.push(withEvidence(`Compatible standards overlay: ${standard}`, evidence));
+      const descriptor = typeof standard === "string" ? { text: standard } : standard;
+      candidates.push({
+        topic: descriptor.topic ?? inferConventionTopic(descriptor.text),
+        source: "standard",
+        text: descriptor.text,
+        evidence
+      });
     }
     for (const antiPattern of config.antiPatterns) {
-      bullets.push(withEvidence(`Avoid: ${antiPattern}`, evidence));
+      const descriptor = typeof antiPattern === "string" ? { text: antiPattern } : antiPattern;
+      candidates.push({
+        topic: descriptor.topic ?? inferConventionTopic(descriptor.text),
+        source: "anti-pattern",
+        text: descriptor.text,
+        evidence
+      });
+    }
+
+    for (const candidate of mergeConventionCandidates(candidates)) {
+      bullets.push(withEvidence(renderCandidate(candidate), candidate.evidence));
     }
 
     sections.push({
@@ -1142,6 +1675,107 @@ async function buildMandatoryConventionsSection(args: {
     title: MANDATORY_CONVENTIONS_TITLE,
     bullets
   };
+}
+
+async function buildRulebookUnknowns(args: {
+  repoRoot: string;
+  files: string[];
+  profile: ProjectProfile;
+}): Promise<string[]> {
+  const unknowns: string[] = [];
+  const strongFrameworks = args.profile.frameworks.filter((framework) => framework.confidence >= 0.6);
+  const flutterDominant = hasStrongFlutterSignal(args.profile);
+  const materiallyDistinctStrongFrameworks = flutterDominant
+    ? strongFrameworks.filter((framework) => !FLUTTER_PLATFORM_FRAMEWORKS.has(framework.name))
+    : strongFrameworks;
+
+  if (materiallyDistinctStrongFrameworks.length > 1) {
+    unknowns.push(
+      `Multiple strong framework signals remain active (${materiallyDistinctStrongFrameworks.map((framework) => framework.name).join(", ")}); prefer touched-boundary local conventions and avoid cross-framework migrations unless the task explicitly requires them.`
+    );
+  }
+
+  const nextAppRouter = await collectPatternEvidence({
+    repoRoot: args.repoRoot,
+    files: args.files.filter((file) => /(^|\/)app\/.*\.(tsx|ts|jsx|js)$/.test(file)),
+    pattern: /export\s+default\s+function|\bgenerateMetadata\b|['"]use client['"]/,
+    maxEvidence: 3
+  });
+  const nextPagesRouter = await collectPatternEvidence({
+    repoRoot: args.repoRoot,
+    files: args.files.filter((file) => /(^|\/)pages\/.*\.(tsx|ts|jsx|js)$/.test(file)),
+    pattern: /getServerSideProps|getStaticProps|getStaticPaths/,
+    maxEvidence: 3
+  });
+  if (nextAppRouter.count > 0 && nextPagesRouter.count > 0) {
+    unknowns.push("Both Next.js app-router and pages-router patterns are present; do not mix routing paradigms in the same feature without an explicit migration decision.");
+  }
+
+  const flutterStateSignals = await Promise.all([
+    collectPatternEvidence({ repoRoot: args.repoRoot, files: filterFilesForLanguage(args.files, "dart"), pattern: /\bChangeNotifier\b/, maxEvidence: 2 }),
+    collectPatternEvidence({ repoRoot: args.repoRoot, files: filterFilesForLanguage(args.files, "dart"), pattern: /\bBloc\b/, maxEvidence: 2 }),
+    collectPatternEvidence({ repoRoot: args.repoRoot, files: filterFilesForLanguage(args.files, "dart"), pattern: /\bRiverpod\b/, maxEvidence: 2 })
+  ]);
+  const activeFlutterStateModels = [
+    flutterStateSignals[0]?.count ? "ChangeNotifier" : undefined,
+    flutterStateSignals[1]?.count ? "Bloc" : undefined,
+    flutterStateSignals[2]?.count ? "Riverpod" : undefined
+  ].filter((value): value is string => Boolean(value));
+  if (activeFlutterStateModels.length > 1) {
+    unknowns.push(`Multiple Flutter state-management paradigms are present (${activeFlutterStateModels.join(", ")}); keep changes inside the touched boundary's existing state style and avoid spreading one pattern across the other without migration scope.`);
+  }
+
+  const flutterNavigationSignals = await Promise.all([
+    collectPatternEvidence({ repoRoot: args.repoRoot, files: filterFilesForLanguage(args.files, "dart"), pattern: /\bGoRouter\b/, maxEvidence: 2 }),
+    collectPatternEvidence({ repoRoot: args.repoRoot, files: filterFilesForLanguage(args.files, "dart"), pattern: /\b(MaterialPageRoute|Navigator\.)\b/, maxEvidence: 2 })
+  ]);
+  const activeFlutterNavigationModels = [
+    flutterNavigationSignals[0]?.count ? "go_router" : undefined,
+    flutterNavigationSignals[1]?.count ? "Navigator" : undefined
+  ].filter((value): value is string => Boolean(value));
+  if (activeFlutterNavigationModels.length > 1) {
+    unknowns.push(`Multiple Flutter navigation paradigms are present (${activeFlutterNavigationModels.join(", ")}); keep changes within the touched flow's existing navigation style unless the task is an explicit routing migration.`);
+  }
+
+  const frontendStateSignals = await Promise.all([
+    collectPatternEvidence({ repoRoot: args.repoRoot, files: args.files.filter((file) => /\.(tsx|jsx|ts|js|vue)$/.test(file)), pattern: /\buseReducer\b|\bcreateContext\b/, maxEvidence: 2 }),
+    collectPatternEvidence({ repoRoot: args.repoRoot, files: args.files.filter((file) => /\.(tsx|jsx|ts|js|vue)$/.test(file)), pattern: /\bRedux\b|\bconfigureStore\b|\bcreateSlice\b/, maxEvidence: 2 }),
+    collectPatternEvidence({ repoRoot: args.repoRoot, files: args.files.filter((file) => /\.(tsx|jsx|ts|js|vue)$/.test(file)), pattern: /\bZustand\b|\bcreate\s*\(\s*\(|\bdefineStore\b/, maxEvidence: 2 })
+  ]);
+  const activeFrontendStateModels = [
+    frontendStateSignals[0]?.count ? "hooks/context" : undefined,
+    frontendStateSignals[1]?.count ? "redux" : undefined,
+    frontendStateSignals[2]?.count ? "store/composable" : undefined
+  ].filter((value): value is string => Boolean(value));
+  if (activeFrontendStateModels.length > 1) {
+    unknowns.push(`Multiple frontend state paradigms are present (${activeFrontendStateModels.join(", ")}); keep changes within the touched feature's existing state model unless an explicit consolidation plan exists.`);
+  }
+
+  const androidUiSignals = await Promise.all([
+    collectPatternEvidence({ repoRoot: args.repoRoot, files: args.files.filter((file) => /\.(kt|java)$/.test(file)), pattern: /@Composable|setContent\s*\{/, maxEvidence: 2 }),
+    collectPatternEvidence({ repoRoot: args.repoRoot, files: args.files.filter((file) => /\.(kt|java)$/.test(file)), pattern: /\b(Fragment|AppCompatActivity|ComponentActivity)\b/, maxEvidence: 2 })
+  ]);
+  const activeAndroidUiModels = [
+    androidUiSignals[0]?.count ? "compose" : undefined,
+    androidUiSignals[1]?.count ? "activity/fragment" : undefined
+  ].filter((value): value is string => Boolean(value));
+  if (activeAndroidUiModels.length > 1) {
+    unknowns.push(`Multiple Android UI paradigms are present (${activeAndroidUiModels.join(", ")}); keep touched code within the existing screen model unless the task is an explicit migration.`);
+  }
+
+  const iosUiSignals = await Promise.all([
+    collectPatternEvidence({ repoRoot: args.repoRoot, files: args.files.filter((file) => /\.swift$/.test(file)), pattern: /\bSwiftUI\b|struct\s+[A-Za-z0-9_]+\s*:\s*View|NavigationStack/, maxEvidence: 2 }),
+    collectPatternEvidence({ repoRoot: args.repoRoot, files: args.files.filter((file) => /\.swift$/.test(file)), pattern: /\bUIViewController\b|\bUINavigationController\b/, maxEvidence: 2 })
+  ]);
+  const activeIosUiModels = [
+    iosUiSignals[0]?.count ? "swiftui" : undefined,
+    iosUiSignals[1]?.count ? "uikit" : undefined
+  ].filter((value): value is string => Boolean(value));
+  if (activeIosUiModels.length > 1) {
+    unknowns.push(`Multiple iOS UI paradigms are present (${activeIosUiModels.join(", ")}); keep changes within the touched module's current UI style unless a migration is explicitly in scope.`);
+  }
+
+  return dedupe(unknowns);
 }
 
 async function buildLaravelRulebook(profile: ProjectProfile, policy: RulebookPolicy): Promise<Rulebook> {
@@ -1586,7 +2220,8 @@ async function buildLaravelRulebook(profile: ProjectProfile, policy: RulebookPol
   return {
     title: "Project Conventions (Evidence-Backed)",
     snapshot,
-    sections
+    sections,
+    unknowns: []
   };
 }
 
@@ -1754,6 +2389,11 @@ export async function buildRulebook(profile: ProjectProfile, policy?: Partial<Ru
   const weakSignals = strongFrameworks.length === 0;
   const isBootstrapProfile = profile.guardrails.notes.some((note) => /bootstrapp?ed/i.test(note));
   const hasLaravel = profile.frameworks.some((framework) => framework.name === "laravel" && framework.confidence >= 0.5);
+  const rulebookUnknowns = await buildRulebookUnknowns({
+    repoRoot,
+    files: sourceFiles,
+    profile
+  });
 
   const snapshot: string[] = [
     withEvidence(
@@ -1809,11 +2449,11 @@ export async function buildRulebook(profile: ProjectProfile, policy?: Partial<Ru
   });
 
   const buildBullets = [
-    `Install command: ${profile.build.commands.install ?? "UNKNOWN"}.`,
-    `Build command: ${profile.build.commands.build ?? "UNKNOWN"}.`,
-    `Test command: ${profile.build.commands.test ?? "UNKNOWN"}.`,
-    `Lint command: ${profile.build.commands.lint ?? "UNKNOWN"}.`,
-    `Format command: ${profile.build.commands.format ?? "UNKNOWN"}.`
+    withTrailingPeriod(`Install command: ${profile.build.commands.install ?? "UNKNOWN"}`),
+    withTrailingPeriod(`Build command: ${profile.build.commands.build ?? "UNKNOWN"}`),
+    withTrailingPeriod(`Test command: ${profile.build.commands.test ?? "UNKNOWN"}`),
+    withTrailingPeriod(`Lint command: ${profile.build.commands.lint ?? "UNKNOWN"}`),
+    withTrailingPeriod(`Format command: ${profile.build.commands.format ?? "UNKNOWN"}`)
   ].map((line) => withEvidence(line, profile.build.evidence));
   buildBullets.push(
     withEvidence(
@@ -1975,6 +2615,7 @@ export async function buildRulebook(profile: ProjectProfile, policy?: Partial<Ru
   return {
     title: "Project Conventions (Evidence-Backed)",
     snapshot,
-    sections
+    sections,
+    unknowns: rulebookUnknowns
   };
 }

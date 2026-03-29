@@ -109,6 +109,7 @@ describe("renderer", () => {
 
     const agents = files.find((f) => f.path === "AGENTS.md");
     expect(agents?.content).toContain("Flutter Hybrid Conventions");
+    expect(agents?.content).toContain("Repository-specific convention");
     expect(agents?.content).toContain("Compatible standards overlay");
     expect(agents?.content).toContain("dart format .");
     expect(agents?.content).toContain("flutter analyze");
@@ -132,6 +133,161 @@ describe("renderer", () => {
     expect(agents?.content).not.toContain("Spring Boot Hybrid Conventions");
     expect(agents?.content).not.toContain("Messy/Legacy Code Stabilization");
     expect(agents?.content).toContain("Detected frameworks: flutter (0.75).");
+  });
+
+  it("extracts deeper repo boundaries for structured Flutter repositories", async () => {
+    const files = await renderRules({
+      repoPath: path.join(fixturesRoot, "flutter_structured_min"),
+      pack: "default",
+      targets: { codex: true, copilot: false, claude: false, junie: false, gemini: false, antigravity: false },
+      policy: {
+        strictness: "very-strict",
+        standards: "project-plus-standard"
+      }
+    });
+
+    const agents = files.find((f) => f.path === "AGENTS.md");
+    expect(agents?.content).toContain("Repository-specific convention (ui): Flutter route-level screens and reusable widgets already live in distinct folders");
+    expect(agents?.content).toContain("Repository-specific convention (state): Flutter app state already has a dedicated state boundary");
+    expect(agents?.content).toContain("Repository-specific convention (data): Flutter backend/auth/data access is already pushed into dedicated service layers");
+    expect(agents?.content).toContain("Repository-specific convention (localization): Localized copy/resources already have a dedicated boundary");
+    expect(agents?.content).toContain("Compatible standards overlay");
+  });
+
+  it("extracts semantic repo boundaries even without folder-named layers", async () => {
+    const files = await renderRules({
+      repoPath: path.join(fixturesRoot, "semantic_backend_min"),
+      pack: "default",
+      targets: { codex: true, copilot: false, claude: false, junie: false, gemini: false, antigravity: false },
+      policy: {
+        strictness: "very-strict",
+        standards: "project-plus-standard"
+      }
+    });
+
+    const agents = files.find((f) => f.path === "AGENTS.md");
+    expect(agents?.content).toContain("Repository-specific convention (data): Repository code already defines explicit service/repository/client boundaries in code symbols");
+    expect(agents?.content).toContain("Repository-specific convention (routing): Routing and navigation behavior is already explicit in code-level router/navigation APIs");
+  });
+
+  it("emits UNKNOWN/TODO guidance for conflicting routing paradigms", async () => {
+    const files = await renderRules({
+      repoPath: path.join(fixturesRoot, "next_conflict_min"),
+      pack: "default",
+      targets: { codex: true, copilot: false, claude: false, junie: false, gemini: false, antigravity: false },
+      policy: {
+        strictness: "very-strict",
+        standards: "project-plus-standard"
+      }
+    });
+
+    const agents = files.find((f) => f.path === "AGENTS.md");
+    expect(agents?.content).toContain("Both Next.js app-router and pages-router patterns are present");
+  });
+
+  it("stays Flutter-first on a noisier production-like Flutter fixture", async () => {
+    const files = await renderRules({
+      repoPath: path.join(fixturesRoot, "flutter_noisy_realish_min"),
+      pack: "default",
+      targets: { codex: true, copilot: false, claude: false, junie: false, gemini: false, antigravity: false },
+      policy: {
+        strictness: "very-strict",
+        standards: "project-plus-standard"
+      }
+    });
+
+    const agents = files.find((f) => f.path === "AGENTS.md");
+    expect(agents?.content).toContain("Flutter Hybrid Conventions");
+    expect(agents?.content).toContain("Detected frameworks: flutter (1).");
+    expect(agents?.content).toContain("Format command: dart format .");
+    expect(agents?.content).toContain("Repository-specific convention (routing): Toolchain-confirmed Dart navigation and app-shell ownership is already explicit in validated Flutter source files");
+    expect(agents?.content).toContain("Repository-specific convention (database): Parser-confirmed SQL schema/query boundaries already exist through explicit statements");
+    expect(agents?.content).toContain("Repository-specific convention (security): Parser-confirmed shell safety guards are already present");
+    expect(agents?.content).toContain("Repository-specific convention (ui): Flutter route-level screens and reusable widgets already live in distinct folders");
+    expect(agents?.content).toContain("Repository-specific convention (database): Persistence structure is already expressed through dedicated model or migration boundaries");
+    expect(agents?.content).not.toContain("Messy/Legacy Code Stabilization");
+  });
+
+  it("keeps repo-specific output on a noisier production-like Next fixture", async () => {
+    const files = await renderRules({
+      repoPath: path.join(fixturesRoot, "next_noisy_realish_min"),
+      pack: "default",
+      targets: { codex: true, copilot: false, claude: false, junie: false, gemini: false, antigravity: false },
+      policy: {
+        strictness: "very-strict",
+        standards: "project-plus-standard"
+      }
+    });
+
+    const agents = files.find((f) => f.path === "AGENTS.md");
+    expect(agents?.content).toContain("Next.js Hybrid Conventions");
+    expect(agents?.content).toContain("Repository-specific convention (routing): Next.js routing boundaries are already expressed through app/pages directories");
+    expect(agents?.content).toContain("Repository-specific convention (routing): Next.js route ownership is AST-visible through exported HTTP handlers, metadata exports, middleware, or pages data-loader functions");
+    expect(agents?.content).toContain("Repository-specific convention (data): AST-confirmed service/repository/client boundaries already exist through named code symbols");
+    expect(agents?.content).toContain("Repository-specific convention (validation): Validation and contract objects already live in dedicated request/schema boundaries");
+    expect(agents?.content).toContain("Repository-specific convention (testing): The repository already separates automated verification into dedicated test boundaries");
+  });
+
+  it("surfaces stack-specific semantic conventions for NestJS and FastAPI", async () => {
+    const [nestFiles, fastapiFiles] = await Promise.all([
+      renderRules({
+        repoPath: path.join(fixturesRoot, "nest_min"),
+        pack: "default",
+        targets: { codex: true, copilot: false, claude: false, junie: false, gemini: false, antigravity: false },
+        policy: {
+          strictness: "very-strict",
+          standards: "project-plus-standard"
+        }
+      }),
+      renderRules({
+        repoPath: path.join(fixturesRoot, "fastapi_min"),
+        pack: "default",
+        targets: { codex: true, copilot: false, claude: false, junie: false, gemini: false, antigravity: false },
+        policy: {
+          strictness: "very-strict",
+          standards: "project-plus-standard"
+        }
+      })
+    ]);
+
+    const nestAgents = nestFiles.find((f) => f.path === "AGENTS.md");
+    const fastapiAgents = fastapiFiles.find((f) => f.path === "AGENTS.md");
+    expect(nestAgents?.content).toContain("Repository-specific convention (architecture): NestJS module/controller/provider boundaries are already explicit through decorators and bootstrap wiring");
+    expect(nestAgents?.content).toContain("Repository-specific convention (architecture): NestJS module/controller/provider layering is AST-visible through decorators and bootstrap symbols");
+    expect(fastapiAgents?.content).toContain("Repository-specific convention (routing): FastAPI endpoint boundaries are already explicit in APIRouter or app route declarations");
+    expect(fastapiAgents?.content).toContain("Repository-specific convention (validation): FastAPI request, dependency, and schema contracts are already encoded in Pydantic or dependency-injection constructs");
+  });
+
+  it("surfaces stack-specific semantic conventions for Android and iOS", async () => {
+    const [androidFiles, iosFiles] = await Promise.all([
+      renderRules({
+        repoPath: path.join(fixturesRoot, "android_min"),
+        pack: "default",
+        targets: { codex: true, copilot: false, claude: false, junie: false, gemini: false, antigravity: false },
+        policy: {
+          strictness: "very-strict",
+          standards: "project-plus-standard"
+        }
+      }),
+      renderRules({
+        repoPath: path.join(fixturesRoot, "ios_min"),
+        pack: "default",
+        targets: { codex: true, copilot: false, claude: false, junie: false, gemini: false, antigravity: false },
+        policy: {
+          strictness: "very-strict",
+          standards: "project-plus-standard"
+        }
+      })
+    ]);
+
+    const androidAgents = androidFiles.find((f) => f.path === "AGENTS.md");
+    const iosAgents = iosFiles.find((f) => f.path === "AGENTS.md");
+    expect(androidAgents?.content).toContain("Repository-specific convention (ui): Android presentation structure is already explicit in Compose or Activity/Fragment entrypoints");
+    expect(androidAgents?.content).toContain("Repository-specific convention (state): Android state and navigation ownership already flows through ViewModel/state or navigation APIs");
+    expect(iosAgents?.content).toContain("Repository-specific convention (ui): iOS presentation and navigation boundaries are already explicit in SwiftUI or UIKit entrypoints");
+    expect(iosAgents?.content).toContain("Repository-specific convention (state): iOS state and async lifecycle ownership already appears through observable models or async task patterns");
+    expect(iosAgents?.content).toContain("Repository-specific convention (ui): Toolchain-confirmed Swift presentation ownership is already explicit in validated Swift source files");
+    expect(iosAgents?.content).toContain("Repository-specific convention (state): Toolchain-confirmed Swift async/state ownership is already explicit in validated Swift source files");
   });
 
   it("renders Android and iOS hybrid conventions from bootstrap seeds", async () => {
