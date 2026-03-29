@@ -25,6 +25,7 @@ It does three things really well:
 Hybrid means:
 - repository-specific conventions come first
 - compatible language/framework standards are layered on top only when they do not contradict the repository's observed patterns
+- high-signal repository-specific rules should be retained instead of collapsed into generic guidance when evidence is strong
 - unresolved conflicts or weak signals should remain `UNKNOWN/TODO`, not be guessed
 
 For the default renderer, first-wave stack-aware hybrid specialization now exists for:
@@ -80,6 +81,12 @@ Strict execution requirements:
 - Use rulesmith MCP tools for repository analysis and rule generation workflow.
 - Default generation policy unless explicitly overridden: `strictness="very-strict"` and `standards="project-plus-standard"`.
 - Expect the baseline render to be hybrid: repo-first, then compatible standards overlay, then `UNKNOWN/TODO` only for real uncertainty.
+- Expect the baseline to retain high-signal repository-specific rules when evidence is strong, especially:
+  - flow/reset/redirect patterns
+  - typed exception-handling order
+  - security ownership boundaries
+  - docs or contract sync expectations
+  - unusual local risks or legacy oddities
 - Do not call `apply_rules` with an empty `files` array.
 - If `render_rules` response is too large/truncated, reduce batch size and retry (down to 1 target if needed).
 - Do not print full generated file contents to chat; show concise diff summaries and written paths only.
@@ -142,6 +149,8 @@ What to do:
 - The baseline should already reflect hybrid generation behavior:
   - repository-specific architectural and organizational patterns first
   - compatible language/framework standards second
+  - preserve high-signal repository-specific rules instead of flattening them into generic advice
+  - keep concrete flow, error-handling, security-boundary, and contract-sync conventions when repository evidence is strong
   - avoid generic standards text that contradicts strong repository evidence
 - If render_and_apply is not available, fall back to: render_rules → apply_rendered_rules (using artifactId).
 - If neither artifact tool is available, fall back to: render_rules(includeContent=true) → apply_rules.
@@ -298,6 +307,7 @@ The command above also writes an AI specialization prompt by default:
 - `.rulesmith/bootstrap-specialize-prompt.md`
 
 Paste that prompt into your host AI chat to enrich the baseline rule files with strict language/framework standards and best practices, while preserving the repo-first hybrid behavior.
+The specialization pass should also preserve high-signal repository specifics such as flow-reset behavior, typed error handling order, security ownership boundaries, docs/contract sync requirements, and notable local risks when the repository evidence supports them.
 
 ## Post-Change Review Workflow
 

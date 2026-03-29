@@ -8,6 +8,7 @@ With `strictness="very-strict"` and `standards="project-plus-standard"`, the rec
 - baseline generation is already hybrid and repo-first
 - repository-specific conventions should override generic standards text
 - language/framework standards should be added only when compatible with observed repository patterns
+- high-signal repository-specific rules should be retained when evidence is strong, not flattened into generic advice
 - `UNKNOWN/TODO` should remain only for real uncertainty
 
 The second AI enrichment pass is still recommended for higher-fidelity, project-specific outputs, but it should refine an already-useful baseline rather than replace a generic one.
@@ -60,6 +61,7 @@ Run the following sequence in your host AI chat:
 Baseline expectation in step 6:
 - repo-specific conventions first
 - compatible standards second
+- retain high-signal repo-specific rules such as flow/reset/redirect behavior, typed exception order, security ownership, docs/contract sync, and local oddities when evidence is strong
 - avoid baseline outputs that merely restate generic language advice when stronger repository evidence exists
 
 For greenfield repositories (no meaningful code yet), use:
@@ -135,6 +137,7 @@ Strict execution requirements:
 - Use rulesmith MCP tools for repository analysis and rule generation workflow.
 - Default generation policy unless explicitly overridden: `strictness="very-strict"` and `standards="project-plus-standard"`.
 - Treat that default as hybrid generation: repo-first with standards overlay only where compatible.
+- Expect the baseline to retain high-signal repository-specific rules when evidence is strong, especially flow/reset/redirect patterns, typed exception handling order, security ownership boundaries, docs or contract sync expectations, and notable local oddities.
 - Do not call `apply_rules` with an empty `files` array.
 - If `render_rules` response is too large/truncated, reduce batch size and retry (down to 1 target if needed).
 - Do not print full generated file contents to chat; show concise diff summaries and written paths only.
@@ -193,6 +196,8 @@ What to do:
 - Expect the rendered baseline to be hybrid:
   - preserve repository-specific architecture, naming, and file-boundary patterns first
   - add compatible language/framework standards second
+  - retain high-signal repository-specific rules instead of flattening them into generic guidance
+  - preserve concrete flow, error-handling, security-boundary, and docs/contract-sync conventions when repository evidence is strong
   - leave unresolved conflicts as `UNKNOWN/TODO`
 - If batch render still overloads/truncates:
   - retry with smaller batch size (down to 1 target),
