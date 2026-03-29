@@ -75,7 +75,9 @@ const ENTRYPOINT_CANDIDATES = [
   "src/lib.rs",
   "Program.cs",
   "lib/main.dart",
-  "bin/www"
+  "bin/www",
+  "android/app/src/main/AndroidManifest.xml",
+  "ios/Runner/AppDelegate.swift"
 ];
 
 const LANGUAGE_EXTENSIONS: Record<string, string[]> = {
@@ -134,6 +136,10 @@ async function readTextSafe(repoRoot: string, relPath: string): Promise<string |
 function confidenceFromSignals(matched: number, total: number): number {
   if (total === 0) return 0;
   return Number((matched / total).toFixed(2));
+}
+
+function clampConfidence(value: number): number {
+  return Number(Math.max(0, Math.min(1, value)).toFixed(2));
 }
 
 function mergeWeighted(items: WeightedEvidence[]): WeightedEvidence[] {
@@ -239,6 +245,85 @@ async function detectFlutter(repoRoot: string): Promise<{ framework?: WeightedEv
   };
 }
 
+async function detectNativeMobile(repoRoot: string): Promise<{ frameworks: WeightedEvidence[]; languages: WeightedEvidence[] }> {
+  const frameworks: WeightedEvidence[] = [];
+  const languages: WeightedEvidence[] = [];
+
+  const androidEvidence = (
+    await Promise.all(
+      [
+        "android/app/src/main/AndroidManifest.xml",
+        "android/app/build.gradle",
+        "android/app/build.gradle.kts",
+        "android/build.gradle",
+        "android/build.gradle.kts",
+        "app/src/main/AndroidManifest.xml"
+      ].map(async (item) => ((await exists(repoRoot, item)) ? item : undefined))
+    )
+  ).filter((item): item is string => Boolean(item));
+  const androidKotlinFiles = await listFilesSafe({ repoRoot, glob: "{android,app}/**/*.{kt,kts}", max: 12 });
+  const androidJavaFiles = await listFilesSafe({ repoRoot, glob: "{android,app}/**/*.java", max: 12 });
+
+  if (androidEvidence.length > 0 || androidKotlinFiles.length > 0 || androidJavaFiles.length > 0) {
+    const evidence = [...new Set([...androidEvidence, ...androidKotlinFiles.slice(0, 4), ...androidJavaFiles.slice(0, 4)])];
+    frameworks.push({
+      name: "android",
+      confidence: Number(
+        Math.max(
+          0.65,
+          Math.min(1, confidenceFromSignals(androidEvidence.length + Math.min(androidKotlinFiles.length + androidJavaFiles.length, 3), 6))
+        ).toFixed(2)
+      ),
+      evidence
+    });
+
+    if (androidKotlinFiles.length > 0) {
+      languages.push({
+        name: "kotlin",
+        confidence: clampConfidence(Math.max(0.7, confidenceFromSignals(androidKotlinFiles.length, Math.max(androidKotlinFiles.length, 4)))),
+        evidence: androidKotlinFiles.slice(0, 6)
+      });
+    } else if (androidJavaFiles.length > 0) {
+      languages.push({
+        name: "java",
+        confidence: clampConfidence(Math.max(0.65, confidenceFromSignals(androidJavaFiles.length, Math.max(androidJavaFiles.length, 4)))),
+        evidence: androidJavaFiles.slice(0, 6)
+      });
+    }
+  }
+
+  const iosEvidence = (
+    await Promise.all(
+      [
+        "ios/Runner.xcodeproj/project.pbxproj",
+        "ios/Runner/Info.plist",
+        "ios/Runner/AppDelegate.swift",
+        "ios/Runner/SceneDelegate.swift",
+        "Package.swift"
+      ].map(async (item) => ((await exists(repoRoot, item)) ? item : undefined))
+    )
+  ).filter((item): item is string => Boolean(item));
+  const swiftFiles = await listFilesSafe({ repoRoot, glob: "{ios,macos,Sources}/**/*.swift", max: 16 });
+
+  if (iosEvidence.length > 0 || swiftFiles.length > 0) {
+    const evidence = [...new Set([...iosEvidence, ...swiftFiles.slice(0, 6)])];
+    frameworks.push({
+      name: "ios",
+      confidence: Number(
+        Math.max(0.65, Math.min(1, confidenceFromSignals(iosEvidence.length + Math.min(swiftFiles.length, 3), 6))).toFixed(2)
+      ),
+      evidence
+    });
+    languages.push({
+      name: "swift",
+      confidence: clampConfidence(Math.max(0.7, confidenceFromSignals(swiftFiles.length || iosEvidence.length, 4))),
+      evidence: evidence.slice(0, 6)
+    });
+  }
+
+  return { frameworks, languages };
+}
+
 async function detectVue(repoRoot: string): Promise<{ framework?: WeightedEvidence }> {
   const evidence = new Set<string>();
   const fileChecks = [
@@ -315,6 +400,7 @@ async function detectEcosystemSignals(repoRoot: string): Promise<{ frameworks: W
       ["@angular/core", "angular", 0.85],
       ["svelte", "svelte", 0.8],
       ["express", "express", 0.75],
+      ["react-native", "react-native", 0.8],
       ["nestjs", "nest", 0.75],
       ["@nestjs/core", "nest", 0.85],
       ["fastify", "fastify", 0.75],
@@ -415,6 +501,25 @@ async function detectEcosystemSignals(repoRoot: string): Promise<{ frameworks: W
     if (/vapor/.test(packageSwift)) addFramework("vapor", 0.8, ["Package.swift"]);
   }
 
+  const androidManifestExists = (await exists(repoRoot, "android/app/src/main/AndroidManifest.xml")) || (await exists(repoRoot, "app/src/main/AndroidManifest.xml"));
+  if (androidManifestExists) {
+    addFramework("android", 0.75, [
+      ...(await exists(repoRoot, "android/app/src/main/AndroidManifest.xml") ? ["android/app/src/main/AndroidManifest.xml"] : []),
+      ...(await exists(repoRoot, "android/app/build.gradle.kts") ? ["android/app/build.gradle.kts"] : []),
+      ...(await exists(repoRoot, "android/app/build.gradle") ? ["android/app/build.gradle"] : [])
+    ]);
+  }
+
+  const xcodeprojExists = await exists(repoRoot, "ios/Runner.xcodeproj/project.pbxproj");
+  const appDelegateExists = await exists(repoRoot, "ios/Runner/AppDelegate.swift");
+  if (xcodeprojExists || appDelegateExists) {
+    addFramework("ios", 0.75, [
+      ...(xcodeprojExists ? ["ios/Runner.xcodeproj/project.pbxproj"] : []),
+      ...(appDelegateExists ? ["ios/Runner/AppDelegate.swift"] : []),
+      ...(await exists(repoRoot, "ios/Runner/Info.plist") ? ["ios/Runner/Info.plist"] : [])
+    ]);
+  }
+
   return { frameworks, languages };
 }
 
@@ -505,6 +610,19 @@ async function extractBuildCommands(repoRoot: string): Promise<{ commands: Proje
     evidence.push("composer.json#scripts");
   }
 
+  const pubspec = await readTextSafe(repoRoot, "pubspec.yaml");
+  const analysisOptions = await readTextSafe(repoRoot, "analysis_options.yaml");
+  if (pubspec) {
+    commands.install ??= "flutter pub get";
+    commands.build ??= "flutter build apk";
+    commands.test ??= "flutter test";
+    commands.lint ??= analysisOptions ? "flutter analyze" : (commands.lint ?? "dart analyze");
+    commands.format ??= "dart format .";
+    commands.dev ??= "flutter run";
+    evidence.push("pubspec.yaml");
+    if (analysisOptions) evidence.push("analysis_options.yaml");
+  }
+
   if (pyproject || requirements) {
     if (pyproject && /\[tool\.poetry\]/.test(pyproject)) {
       commands.install ??= "poetry install";
@@ -554,6 +672,16 @@ async function extractBuildCommands(repoRoot: string): Promise<{ commands: Proje
     evidence.push(gradle ? "build.gradle" : "build.gradle.kts");
   }
 
+  const androidManifestExists = (await exists(repoRoot, "android/app/src/main/AndroidManifest.xml")) || (await exists(repoRoot, "app/src/main/AndroidManifest.xml"));
+  if (androidManifestExists && !pubspec) {
+    commands.build ??= "./gradlew assembleDebug";
+    commands.test ??= "./gradlew test";
+    commands.lint ??= "./gradlew lint";
+    evidence.push(
+      (await exists(repoRoot, "android/app/src/main/AndroidManifest.xml")) ? "android/app/src/main/AndroidManifest.xml" : "app/src/main/AndroidManifest.xml"
+    );
+  }
+
   if (gemfile) {
     commands.install ??= "bundle install";
     commands.test ??= "bundle exec rspec";
@@ -575,6 +703,13 @@ async function extractBuildCommands(repoRoot: string): Promise<{ commands: Proje
     commands.test ??= "dotnet test";
     commands.format ??= "dotnet format";
     evidence.push(csprojFiles[0] ?? "*.csproj");
+  }
+
+  const xcodeprojFiles = await listFilesSafe({ repoRoot, glob: "{ios,macos}/**/*.xcodeproj/project.pbxproj", max: 20 });
+  if (xcodeprojFiles.length > 0) {
+    commands.build ??= "xcodebuild build";
+    commands.test ??= "xcodebuild test";
+    evidence.push(xcodeprojFiles[0] ?? "*.xcodeproj/project.pbxproj");
   }
 
   const makefile = await readTextSafe(repoRoot, "Makefile");
@@ -681,11 +816,12 @@ async function collectDirMatches(repoRoot: string, candidates: string[]): Promis
 export async function scanRepo(repoPath: string): Promise<ProjectProfile> {
   const repoRoot = await ensureRepoRoot(repoPath);
 
-  const [laravel, nodeTs, flutter, vue, ecosystem, build, mono, generatedDirs, vendorDirs, allFiles] = await Promise.all([
+  const [laravel, nodeTs, flutter, vue, nativeMobile, ecosystem, build, mono, generatedDirs, vendorDirs, allFiles] = await Promise.all([
     detectLaravel(repoRoot),
     detectNodeTs(repoRoot),
     detectFlutter(repoRoot),
     detectVue(repoRoot),
+    detectNativeMobile(repoRoot),
     detectEcosystemSignals(repoRoot),
     extractBuildCommands(repoRoot),
     detectMonorepo(repoRoot),
@@ -714,13 +850,13 @@ export async function scanRepo(repoPath: string): Promise<ProjectProfile> {
   ).filter((x): x is string => Boolean(x));
 
   const languages = mergeWeighted(
-    [laravel.language, ...nodeTs.languages, flutter.language, ...ecosystem.languages, ...extensionLanguages].filter(
+    [laravel.language, ...nodeTs.languages, flutter.language, ...nativeMobile.languages, ...ecosystem.languages, ...extensionLanguages].filter(
       (x): x is WeightedEvidence => Boolean(x)
     )
   );
 
   const frameworks = mergeWeighted(
-    [laravel.framework, nodeTs.framework, flutter.framework, vue.framework, ...ecosystem.frameworks].filter(
+    [laravel.framework, nodeTs.framework, flutter.framework, vue.framework, ...nativeMobile.frameworks, ...ecosystem.frameworks].filter(
       (x): x is WeightedEvidence => Boolean(x)
     )
   );

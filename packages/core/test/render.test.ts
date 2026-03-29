@@ -96,6 +96,96 @@ describe("renderer", () => {
     expect(antigravity?.content).toContain(MANDATORY_CONVENTIONS_TITLE);
   });
 
+  it("renders hybrid Flutter conventions for Flutter repositories", async () => {
+    const files = await renderRules({
+      repoPath: path.join(fixturesRoot, "flutter_min"),
+      pack: "default",
+      targets: { codex: true, copilot: false, claude: false, junie: false, gemini: false, antigravity: false },
+      policy: {
+        strictness: "very-strict",
+        standards: "project-plus-standard"
+      }
+    });
+
+    const agents = files.find((f) => f.path === "AGENTS.md");
+    expect(agents?.content).toContain("Flutter Hybrid Conventions");
+    expect(agents?.content).toContain("Compatible standards overlay");
+    expect(agents?.content).toContain("dart format .");
+    expect(agents?.content).toContain("flutter analyze");
+  });
+
+  it("keeps Flutter repos with native host wrappers in Flutter-first hybrid mode", async () => {
+    const files = await renderRules({
+      repoPath: path.join(fixturesRoot, "flutter_hosted_min"),
+      pack: "default",
+      targets: { codex: true, copilot: false, claude: false, junie: false, gemini: false, antigravity: false },
+      policy: {
+        strictness: "very-strict",
+        standards: "project-plus-standard"
+      }
+    });
+
+    const agents = files.find((f) => f.path === "AGENTS.md");
+    expect(agents?.content).toContain("Flutter Hybrid Conventions");
+    expect(agents?.content).toContain("flutter pub get");
+    expect(agents?.content).toContain("flutter analyze");
+    expect(agents?.content).not.toContain("Spring Boot Hybrid Conventions");
+    expect(agents?.content).not.toContain("Messy/Legacy Code Stabilization");
+    expect(agents?.content).toContain("Detected frameworks: flutter (0.75).");
+  });
+
+  it("renders Android and iOS hybrid conventions from bootstrap seeds", async () => {
+    const files = await bootstrapRules({
+      repoPath: path.join(fixturesRoot, "node_ts_min"),
+      pack: "default",
+      seed: {
+        languages: [{ name: "kotlin" }, { name: "swift" }],
+        frameworks: [{ name: "android" }, { name: "ios" }],
+        build: {
+          commands: {
+            build: "./gradlew assembleDebug",
+            test: "xcodebuild test"
+          },
+          evidence: ["bootstrap:seed"]
+        }
+      },
+      targets: { codex: true, copilot: false, claude: false, junie: false, gemini: false, antigravity: false }
+    });
+
+    const agents = files.find((f) => f.path === "AGENTS.md");
+    expect(agents?.content).toContain("Android Hybrid Conventions");
+    expect(agents?.content).toContain("iOS Hybrid Conventions");
+    expect(agents?.content).toContain("Compatible standards overlay");
+  });
+
+  it.each([
+    ["vue_min", "Vue Hybrid Conventions"],
+    ["react_min", "React Hybrid Conventions"],
+    ["next_min", "Next.js Hybrid Conventions"],
+    ["express_min", "Node/Express Hybrid Conventions"],
+    ["nest_min", "NestJS Hybrid Conventions"],
+    ["fastapi_min", "FastAPI Hybrid Conventions"],
+    ["django_min", "Django Hybrid Conventions"],
+    ["spring_min", "Spring Boot Hybrid Conventions"],
+    ["aspnet_min", "ASP.NET Core Hybrid Conventions"],
+    ["android_min", "Android Hybrid Conventions"],
+    ["ios_min", "iOS Hybrid Conventions"]
+  ])("renders %s in hybrid mode", async (fixtureName, expectedSection) => {
+    const files = await renderRules({
+      repoPath: path.join(fixturesRoot, fixtureName),
+      pack: "default",
+      targets: { codex: true, copilot: false, claude: false, junie: false, gemini: false, antigravity: false },
+      policy: {
+        strictness: "very-strict",
+        standards: "project-plus-standard"
+      }
+    });
+
+    const agents = files.find((f) => f.path === "AGENTS.md");
+    expect(agents?.content).toContain(expectedSection);
+    expect(agents?.content).toContain("Compatible standards overlay");
+  });
+
   it("does not include mandatory strict section in baseline mode", async () => {
     const files = await renderRules({
       repoPath: path.join(fixturesRoot, "node_ts_min"),

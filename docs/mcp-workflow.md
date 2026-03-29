@@ -2,6 +2,16 @@
 
 This doc covers the recommended MCP flow, evidence budget, and tool reference.
 
+## Hybrid baseline behavior
+
+With `strictness="very-strict"` and `standards="project-plus-standard"`, the recommended expectation is:
+- baseline generation is already hybrid and repo-first
+- repository-specific conventions should override generic standards text
+- language/framework standards should be added only when compatible with observed repository patterns
+- `UNKNOWN/TODO` should remain only for real uncertainty
+
+The second AI enrichment pass is still recommended for higher-fidelity, project-specific outputs, but it should refine an already-useful baseline rather than replace a generic one.
+
 ## MCP server
 
 Build first, then run the server:
@@ -46,6 +56,11 @@ Run the following sequence in your host AI chat:
 5) expand evidence with `list_files` / `search` / `read_files`
 6) generate in small target batches (`strictness=very-strict` by default)
 7) `render_rules` -> `diff_rules` -> `apply_rules` (only when valid)
+
+Baseline expectation in step 6:
+- repo-specific conventions first
+- compatible standards second
+- avoid baseline outputs that merely restate generic language advice when stronger repository evidence exists
 
 For greenfield repositories (no meaningful code yet), use:
 - `bootstrap_rules` with a seed object (`languages`, `frameworks`, optional commands/guardrails)
@@ -119,6 +134,7 @@ Strict execution requirements:
 - Do not stop until scan + generation + apply are complete.
 - Use rulesmith MCP tools for repository analysis and rule generation workflow.
 - Default generation policy unless explicitly overridden: `strictness="very-strict"` and `standards="project-plus-standard"`.
+- Treat that default as hybrid generation: repo-first with standards overlay only where compatible.
 - Do not call `apply_rules` with an empty `files` array.
 - If `render_rules` response is too large/truncated, reduce batch size and retry (down to 1 target if needed).
 - Do not print full generated file contents to chat; show concise diff summaries and written paths only.
@@ -174,6 +190,10 @@ What to do:
     { strictness: "very-strict", standards: "project-plus-standard" }
   - diff_rules for the returned files and show only concise diff summary.
   - if diff is valid and `files` is non-empty, apply_rules with mode="safe".
+- Expect the rendered baseline to be hybrid:
+  - preserve repository-specific architecture, naming, and file-boundary patterns first
+  - add compatible language/framework standards second
+  - leave unresolved conflicts as `UNKNOWN/TODO`
 - If batch render still overloads/truncates:
   - retry with smaller batch size (down to 1 target),
   - continue until every selected target is processed.
@@ -264,6 +284,7 @@ If you want to keep artifacts:
 
 In generated compose prompts, `rulesmith`:
 - includes language standards and best practices (for example PSR-12 for PHP) when the repository is not a mixed/salad legacy codebase
+- prefers repository-specific conventions over generic standards when both are available and compatible
 - instructs incremental stabilization with project-local conventions first for mixed/salad repositories
 - enforces DRY/no-premature-abstraction, file cohesion (avoid mega files), language-specific API documentation standards (PHPDoc/JSDoc/docstrings/etc.)
 - adds a dedicated documentation-maintenance section for developer + user docs

@@ -25,10 +25,29 @@ function dedupe(items: string[]): string[] {
   return [...new Set(items)];
 }
 
+const FLUTTER_PLATFORM_FRAMEWORKS = new Set(["android", "ios"]);
+const FLUTTER_PLATFORM_LANGUAGES = new Set(["swift", "kotlin", "java", "c", "cpp"]);
+
 function withEvidence(text: string, evidence: string[]): string {
   const cleaned = dedupe(evidence.filter(Boolean));
   if (cleaned.length === 0) return text;
   return `${text} (evidence: ${cleaned.slice(0, 6).join(", ")})`;
+}
+
+function hasStrongFlutterSignal(profile: ProjectProfile): boolean {
+  return profile.frameworks.some((framework) => framework.name === "flutter" && framework.confidence >= 0.6);
+}
+
+function visibleLanguagesForRulebook(profile: ProjectProfile): ProjectProfile["languages"] {
+  if (!hasStrongFlutterSignal(profile)) return profile.languages;
+  const filtered = profile.languages.filter((language) => !FLUTTER_PLATFORM_LANGUAGES.has(language.name));
+  return filtered.length > 0 ? filtered : profile.languages;
+}
+
+function visibleFrameworksForRulebook(profile: ProjectProfile): ProjectProfile["frameworks"] {
+  if (!hasStrongFlutterSignal(profile)) return profile.frameworks;
+  const filtered = profile.frameworks.filter((framework) => !FLUTTER_PLATFORM_FRAMEWORKS.has(framework.name));
+  return filtered.length > 0 ? filtered : profile.frameworks;
 }
 
 function normalizePolicy(policy?: Partial<RulebookPolicy>): RulebookPolicy {
@@ -216,13 +235,13 @@ function buildPolicySection(args: {
       ? "Project-only standards: prioritize repository-local conventions, avoid introducing external style mandates."
       : "Project+standard mode: combine repository conventions with language-standard style baselines.";
   const languageStandards = dedupe(
-    args.profile.languages
+    visibleLanguagesForRulebook(args.profile)
       .filter((language) => language.confidence >= 0.25)
       .map((language) => standardForLanguage(language.name, args.hasLaravel))
       .filter((line): line is string => Boolean(line))
   );
   const languageDocStandards = dedupe(
-    args.profile.languages
+    visibleLanguagesForRulebook(args.profile)
       .filter((language) => language.confidence >= 0.25)
       .map((language) => documentationStandardForLanguage(language.name))
       .filter((line): line is string => Boolean(line))
@@ -325,6 +344,24 @@ export const MANDATORY_CONVENTIONS_TITLE = "Mandatory System-Conventions (Strict
 type LanguagePatternDescriptor = {
   label: string;
   pattern: RegExp;
+};
+
+type StackPatternDescriptor = {
+  label: string;
+  pattern: RegExp;
+  pathPattern?: RegExp;
+  guidance: string;
+};
+
+type StackSpecializerConfig = {
+  key: string;
+  title: string;
+  frameworkNames?: string[];
+  languageNames?: string[];
+  intro: string;
+  standards: string[];
+  antiPatterns: string[];
+  patterns: StackPatternDescriptor[];
 };
 
 const LANGUAGE_PATTERNS: Record<string, LanguagePatternDescriptor[]> = {
@@ -454,6 +491,529 @@ function displayLanguageName(language: string): string {
   return map[language] ?? language;
 }
 
+function displayFrameworkName(framework: string): string {
+  const map: Record<string, string> = {
+    react: "React",
+    nextjs: "Next.js",
+    express: "Node/Express",
+    nest: "NestJS",
+    fastapi: "FastAPI",
+    django: "Django",
+    "spring-boot": "Spring Boot",
+    aspnet: "ASP.NET Core",
+    flutter: "Flutter",
+    android: "Android",
+    ios: "iOS"
+  };
+  return map[framework] ?? framework;
+}
+
+function patternFilesForDescriptor(files: string[], descriptor: StackPatternDescriptor): string[] {
+  if (!descriptor.pathPattern) return files;
+  return files.filter((file) => descriptor.pathPattern?.test(file));
+}
+
+function profileEvidenceForNames(profile: ProjectProfile, frameworkNames: string[] = [], languageNames: string[] = []): string[] {
+  const evidence = [
+    ...profile.frameworks.filter((framework) => frameworkNames.includes(framework.name)).flatMap((framework) => framework.evidence),
+    ...profile.languages.filter((language) => languageNames.includes(language.name)).flatMap((language) => language.evidence)
+  ];
+  return dedupe(evidence).slice(0, 8);
+}
+
+const STACK_SPECIALIZERS: StackSpecializerConfig[] = [
+  {
+    key: "vue",
+    title: "Vue Hybrid Conventions",
+    frameworkNames: ["vue"],
+    languageNames: ["typescript", "javascript"],
+    intro:
+      "Vue hybrid mode: preserve the repo's component, composable, and routing/state boundaries first, then apply compatible Vue standards.",
+    standards: [
+      "Keep template, script, and shared state concerns separated in the same style the repository already uses.",
+      "Preserve the current routing and store/composable strategy rather than mixing in a second state pattern."
+    ],
+    antiPatterns: [
+      "Do not scatter business logic across templates, component setup blocks, stores, and ad-hoc utilities without following the repository's current boundary style."
+    ],
+    patterns: [
+      {
+        label: "single-file component structure",
+        pattern: /<template>|<script\s+setup|defineComponent\(/,
+        pathPattern: /\.vue$/,
+        guidance: "Preserve the repository's current single-file component structure and script style."
+      },
+      {
+        label: "router or app bootstrap wiring",
+        pattern: /createApp\(|createRouter\(|vue-router/,
+        pathPattern: /\.(vue|ts|js)$/,
+        guidance: "Keep app bootstrap and router wiring aligned with the current entrypoint style."
+      },
+      {
+        label: "store or composable patterns",
+        pattern: /defineStore\(|ref\(|reactive\(|computed\(/,
+        pathPattern: /\.(vue|ts|js)$/,
+        guidance: "Reuse the current composable or store-based state pattern in touched features."
+      }
+    ]
+  },
+  {
+    key: "react",
+    title: "React Hybrid Conventions",
+    frameworkNames: ["react"],
+    languageNames: ["typescript", "javascript"],
+    intro:
+      "React hybrid mode: preserve the repo's component, state, and data-fetching boundaries first, then apply compatible React/TypeScript standards on top.",
+    standards: [
+      "Prefer typed component contracts, hook-side-effect discipline, and small presentational components over implicit shared state.",
+      "Keep data loading, mutation, and UI rendering responsibilities separated unless the touched boundary already uses a colocated pattern."
+    ],
+    antiPatterns: [
+      "Do not introduce a second state-management style inside one feature boundary when the repo already converged on hooks, context, Redux, Zustand, or another pattern."
+    ],
+    patterns: [
+      {
+        label: "function-component composition",
+        pattern: /\bfunction\s+[A-Z][A-Za-z0-9_]*\s*\(|\bconst\s+[A-Z][A-Za-z0-9_]*\s*=\s*\([^)]*\)\s*=>/,
+        pathPattern: /\.(tsx|jsx)$/,
+        guidance: "Preserve the existing component composition style for touched UI flows."
+      },
+      {
+        label: "hook-driven state/effects",
+        pattern: /\buse(State|Effect|Reducer|Context|Transition|DeferredValue|SyncExternalStore)\b/,
+        pathPattern: /\.(tsx|jsx|ts|js)$/,
+        guidance: "Keep hook usage explicit and side effects localized to the same lifecycle style already present in the repository."
+      },
+      {
+        label: "component test tooling",
+        pattern: /@testing-library\/react|render\(|screen\./,
+        pathPattern: /\.(test|spec)\.(tsx|jsx|ts|js)$/,
+        guidance: "Extend existing component test patterns instead of inventing a second test style."
+      }
+    ]
+  },
+  {
+    key: "nextjs",
+    title: "Next.js Hybrid Conventions",
+    frameworkNames: ["nextjs"],
+    languageNames: ["typescript", "javascript"],
+    intro:
+      "Next.js hybrid mode: preserve the repo's routing and server/client split first, then apply compatible Next.js and React standards.",
+    standards: [
+      "Respect the current app-router or pages-router structure; do not mix paradigms within the same feature without an explicit migration.",
+      "Keep server-only and client-only concerns explicit so React rendering rules and framework data boundaries stay aligned."
+    ],
+    antiPatterns: [
+      "Do not move data fetching indiscriminately between server components, client components, and route handlers."
+    ],
+    patterns: [
+      {
+        label: "app router conventions",
+        pattern: /export\s+default\s+function|\bgenerateMetadata\b|['\"]use client['\"]/,
+        pathPattern: /(^|\/)app\/.*\.(tsx|ts|jsx|js)$/,
+        guidance: "Preserve the existing app-router component split and client-component declarations."
+      },
+      {
+        label: "pages router conventions",
+        pattern: /getServerSideProps|getStaticProps|getStaticPaths/,
+        pathPattern: /(^|\/)pages\/.*\.(tsx|ts|jsx|js)$/,
+        guidance: "Keep the pages-router data loading pattern consistent where it is already in use."
+      },
+      {
+        label: "route handler boundaries",
+        pattern: /export\s+(async\s+)?function\s+(GET|POST|PUT|PATCH|DELETE)/,
+        pathPattern: /route\.(ts|js)$/,
+        guidance: "Preserve explicit route-handler contracts and avoid leaking page/component concerns into handlers."
+      }
+    ]
+  },
+  {
+    key: "express",
+    title: "Node/Express Hybrid Conventions",
+    frameworkNames: ["express", "node"],
+    languageNames: ["typescript", "javascript"],
+    intro:
+      "Node/Express hybrid mode: preserve the repo's request -> middleware -> service/data flow first, then apply compatible Node standards.",
+    standards: [
+      "Keep transport concerns at the route or controller boundary and push business logic into reusable services when that boundary already exists.",
+      "Preserve explicit async error propagation and input validation patterns rather than introducing ad-hoc shortcuts."
+    ],
+    antiPatterns: [
+      "Do not mix unrelated handler, validation, and persistence styles inside the same API slice."
+    ],
+    patterns: [
+      {
+        label: "express routing",
+        pattern: /\bexpress\(\)|\bRouter\(\)|\.(get|post|put|patch|delete)\s*\(/,
+        pathPattern: /\.(ts|js)$/,
+        guidance: "Match the repository's existing route declaration and router composition style."
+      },
+      {
+        label: "middleware/error handling",
+        pattern: /\bnext\s*\(|\berr(or)?\b|status\(\d{3}\)/,
+        pathPattern: /\.(ts|js)$/,
+        guidance: "Preserve middleware-driven error mapping and avoid bypassing the existing error pipeline."
+      },
+      {
+        label: "schema validation",
+        pattern: /\bzod\b|\bjoi\b|\byup\b|class-validator/,
+        pathPattern: /\.(ts|js)$/,
+        guidance: "Use the same validation library and boundary pattern that the repository already uses."
+      }
+    ]
+  },
+  {
+    key: "nest",
+    title: "NestJS Hybrid Conventions",
+    frameworkNames: ["nest"],
+    languageNames: ["typescript"],
+    intro:
+      "NestJS hybrid mode: preserve module/controller/service layering first, then apply compatible NestJS and TypeScript standards.",
+    standards: [
+      "Keep DI-driven boundaries explicit and preserve DTO validation and provider wiring conventions already in the codebase.",
+      "Match the existing testing split between unit tests, module tests, and e2e tests."
+    ],
+    antiPatterns: [
+      "Do not bypass Nest dependency injection or decorator-driven module structure with ad-hoc singleton patterns."
+    ],
+    patterns: [
+      {
+        label: "controller and service decorators",
+        pattern: /@Controller|@Injectable|@Module/,
+        pathPattern: /\.(ts|js)$/,
+        guidance: "Preserve Nest's controller/service/module layering and keep responsibilities aligned with surrounding modules."
+      },
+      {
+        label: "DTO or validator usage",
+        pattern: /class-validator|ValidationPipe|@Body\(|@Param\(/,
+        pathPattern: /\.(ts|js)$/,
+        guidance: "Keep request validation explicit at the Nest boundary and reuse the established DTO style."
+      },
+      {
+        label: "test wiring",
+        pattern: /Test\.createTestingModule|@nestjs\/testing/,
+        pathPattern: /\.(test|spec)\.(ts|js)$/,
+        guidance: "Follow the repository's existing Nest testing harness instead of inventing a second pattern."
+      }
+    ]
+  },
+  {
+    key: "fastapi",
+    title: "FastAPI Hybrid Conventions",
+    frameworkNames: ["fastapi"],
+    languageNames: ["python"],
+    intro:
+      "FastAPI hybrid mode: preserve the repo's router, schema, and dependency boundaries first, then apply compatible FastAPI/Python standards.",
+    standards: [
+      "Keep Pydantic schema boundaries explicit and preserve request/response typing where the repository already uses it.",
+      "Keep dependency injection and async path operation style consistent per module."
+    ],
+    antiPatterns: [
+      "Do not move validation, routing, and persistence logic into a single handler when the repository already separates them."
+    ],
+    patterns: [
+      {
+        label: "router declarations",
+        pattern: /APIRouter|FastAPI\(/,
+        pathPattern: /\.py$/,
+        guidance: "Preserve the repository's existing router composition and endpoint registration style."
+      },
+      {
+        label: "Pydantic schemas",
+        pattern: /\bBaseModel\b|model_config|Field\(/,
+        pathPattern: /\.py$/,
+        guidance: "Keep schema validation and serialization explicit at the same boundaries already used."
+      },
+      {
+        label: "dependency injection",
+        pattern: /\bDepends\(/,
+        pathPattern: /\.py$/,
+        guidance: "Reuse FastAPI dependency injection patterns instead of wiring dependencies ad hoc."
+      }
+    ]
+  },
+  {
+    key: "django",
+    title: "Django Hybrid Conventions",
+    frameworkNames: ["django"],
+    languageNames: ["python"],
+    intro:
+      "Django hybrid mode: preserve the repo's app boundaries and request/model layering first, then apply compatible Django standards.",
+    standards: [
+      "Keep settings, models, views, serializers/forms, and migrations aligned with the existing Django or DRF structure.",
+      "Preserve explicit validation and permission/auth integration at the same layer already used in the repo."
+    ],
+    antiPatterns: [
+      "Do not mix classic Django views, DRF viewsets, and custom service layers arbitrarily inside one feature."
+    ],
+    patterns: [
+      {
+        label: "django app wiring",
+        pattern: /INSTALLED_APPS|urlpatterns|manage\.py|models\.Model/,
+        pathPattern: /\.py$/,
+        guidance: "Preserve the repository's existing app and URL layout."
+      },
+      {
+        label: "DRF conventions",
+        pattern: /APIView|ViewSet|ModelSerializer|Serializer/,
+        pathPattern: /\.py$/,
+        guidance: "Keep API boundaries aligned with the repository's existing DRF patterns where present."
+      },
+      {
+        label: "pytest or Django tests",
+        pattern: /\bpytest\b|TestCase|APITestCase/,
+        pathPattern: /(^|\/)tests?\/.*\.py$|_test\.py$|test_.*\.py$/,
+        guidance: "Follow the existing Django testing style for touched flows."
+      }
+    ]
+  },
+  {
+    key: "spring-boot",
+    title: "Spring Boot Hybrid Conventions",
+    frameworkNames: ["spring-boot"],
+    languageNames: ["java", "kotlin"],
+    intro:
+      "Spring Boot hybrid mode: preserve the repo's controller/service/repository layering first, then apply compatible Spring standards.",
+    standards: [
+      "Keep bean wiring, configuration properties, and transaction boundaries explicit at the same architectural layer already used.",
+      "Preserve the existing split between unit tests, slice tests, and integration tests."
+    ],
+    antiPatterns: [
+      "Do not bypass the established service layer by pushing business logic directly into controllers or repositories."
+    ],
+    patterns: [
+      {
+        label: "Spring stereotype annotations",
+        pattern: /@RestController|@Controller|@Service|@Repository|@Component/,
+        pathPattern: /\.(java|kt)$/,
+        guidance: "Preserve Spring stereotype boundaries and reuse the same layering in touched modules."
+      },
+      {
+        label: "configuration and transaction usage",
+        pattern: /@ConfigurationProperties|@Transactional|application\.(ya?ml|properties)/,
+        pathPattern: /\.(java|kt|ya?ml|properties)$/,
+        guidance: "Keep configuration and transaction semantics explicit and aligned with existing patterns."
+      },
+      {
+        label: "Spring testing style",
+        pattern: /@SpringBootTest|MockMvc|WebMvcTest|DataJpaTest/,
+        pathPattern: /\.(java|kt)$/,
+        guidance: "Extend the test slice strategy already present in the repository."
+      }
+    ]
+  },
+  {
+    key: "aspnet",
+    title: "ASP.NET Core Hybrid Conventions",
+    frameworkNames: ["aspnet"],
+    languageNames: ["csharp"],
+    intro:
+      "ASP.NET Core hybrid mode: preserve the repo's host, DI, and endpoint layering first, then apply compatible .NET standards.",
+    standards: [
+      "Keep service registration, options binding, and endpoint mapping aligned with the current startup pattern.",
+      "Preserve typed contracts, explicit validation, and test boundaries used by the repository."
+    ],
+    antiPatterns: [
+      "Do not mix minimal APIs, MVC controllers, and custom pipeline behavior arbitrarily inside one bounded area."
+    ],
+    patterns: [
+      {
+        label: "host and DI wiring",
+        pattern: /builder\.Services|WebApplication\.CreateBuilder|IServiceCollection/,
+        pathPattern: /\.cs$/,
+        guidance: "Preserve the repository's existing dependency registration and application bootstrap style."
+      },
+      {
+        label: "controller or minimal API endpoints",
+        pattern: /\[ApiController\]|\[Route\(|Map(Get|Post|Put|Patch|Delete)\(/,
+        pathPattern: /\.cs$/,
+        guidance: "Match the endpoint style already used in the touched boundary."
+      },
+      {
+        label: "test framework usage",
+        pattern: /\[(Fact|Theory|Test|TestMethod)\]/,
+        pathPattern: /\.cs$/,
+        guidance: "Reuse the existing .NET test stack instead of introducing a second one."
+      }
+    ]
+  },
+  {
+    key: "flutter",
+    title: "Flutter Hybrid Conventions",
+    frameworkNames: ["flutter"],
+    languageNames: ["dart"],
+    intro:
+      "Flutter hybrid mode: preserve the repo's widget/state/data boundaries first, then apply compatible Dart and Flutter standards.",
+    standards: [
+      "Keep build methods side-effect free, preserve mounted/lifecycle-safe async UI handling, and prefer the repository's existing state boundary over introducing a new state stack.",
+      "Use widget tests for UI flows and keep localization, theming, and navigation aligned with the current app structure."
+    ],
+    antiPatterns: [
+      "Do not mix unrelated state-management libraries or move transport/persistence logic into leaf widgets when a service/controller boundary already exists."
+    ],
+    patterns: [
+      {
+        label: "widget composition",
+        pattern: /extends\s+(StatelessWidget|StatefulWidget)|MaterialApp|CupertinoApp/,
+        pathPattern: /\.dart$/,
+        guidance: "Preserve the repository's current widget composition and app-shell structure."
+      },
+      {
+        label: "state and async UI flow",
+        pattern: /\bChangeNotifier\b|\bsetState\s*\(|\bFuture<|\bmounted\b/,
+        pathPattern: /\.dart$/,
+        guidance: "Keep state transitions and async UI handling consistent with the existing lifecycle pattern."
+      },
+      {
+        label: "localization, theme, or navigation wiring",
+        pattern: /supportedLocales|localizationsDelegates|ThemeData|Navigator|go_router/,
+        pathPattern: /\.dart$/,
+        guidance: "Preserve the repository's current app-wide localization, theming, and navigation wiring."
+      }
+    ]
+  },
+  {
+    key: "android",
+    title: "Android Hybrid Conventions",
+    frameworkNames: ["android"],
+    languageNames: ["kotlin", "java"],
+    intro:
+      "Android hybrid mode: preserve the repo's module, UI, and state boundaries first, then apply compatible Android/Kotlin standards.",
+    standards: [
+      "Keep Activity/Fragment or Compose boundaries explicit, preserve ViewModel/coroutine state flow where present, and keep manifest/resource changes scoped.",
+      "Respect existing Gradle module structure, test layering, and permission/resource conventions."
+    ],
+    antiPatterns: [
+      "Do not mix Compose, legacy XML views, and navigation/state approaches arbitrarily inside one feature without an explicit migration."
+    ],
+    patterns: [
+      {
+        label: "Compose UI conventions",
+        pattern: /@Composable|setContent\s*\{/,
+        pathPattern: /\.(kt|java)$/,
+        guidance: "Keep Compose usage aligned with the repository's existing UI and state patterns."
+      },
+      {
+        label: "ViewModel or coroutine state",
+        pattern: /\bViewModel\b|\bviewModelScope\b|\bStateFlow\b|\bLiveData\b|\bsuspend\b/,
+        pathPattern: /\.(kt|java)$/,
+        guidance: "Preserve the current Android state and async model instead of introducing a competing one."
+      },
+      {
+        label: "manifest and navigation wiring",
+        pattern: /<activity|<service|NavHost|navigation/i,
+        pathPattern: /AndroidManifest\.xml$|\.(kt|xml)$/,
+        guidance: "Keep manifest, navigation, and permission wiring consistent with the module's existing setup."
+      }
+    ]
+  },
+  {
+    key: "ios",
+    title: "iOS Hybrid Conventions",
+    frameworkNames: ["ios"],
+    languageNames: ["swift"],
+    intro:
+      "iOS hybrid mode: preserve the repo's app/module and UI-flow boundaries first, then apply compatible Swift/iOS standards.",
+    standards: [
+      "Keep SwiftUI or UIKit usage consistent within a touched feature, preserve async lifecycle safety, and keep target/config changes explicit.",
+      "Match the repository's testing, navigation, and service-boundary patterns rather than introducing parallel architectures."
+    ],
+    antiPatterns: [
+      "Do not mix SwiftUI, UIKit, coordinator, and ad-hoc navigation patterns arbitrarily inside one flow without a deliberate migration."
+    ],
+    patterns: [
+      {
+        label: "SwiftUI or UIKit UI layer",
+        pattern: /\bSwiftUI\b|struct\s+[A-Za-z0-9_]+\s*:\s*View|UIViewController/,
+        pathPattern: /\.swift$/,
+        guidance: "Preserve the repository's current iOS UI paradigm in the touched boundary."
+      },
+      {
+        label: "async lifecycle and service flow",
+        pattern: /\basync\b|\bawait\b|URLSession|Task\s*\{/,
+        pathPattern: /\.swift$/,
+        guidance: "Keep async work and service access aligned with the existing lifecycle-safe pattern."
+      },
+      {
+        label: "XCTest conventions",
+        pattern: /XCTestCase|func\s+test[A-Za-z0-9_]*\s*\(/,
+        pathPattern: /\.swift$/,
+        guidance: "Extend the existing XCTest style for verification instead of adding a second test harness."
+      }
+    ]
+  }
+];
+
+async function buildHybridStackSections(args: {
+  repoRoot: string;
+  files: string[];
+  profile: ProjectProfile;
+}): Promise<RulebookSection[]> {
+  const flutterRepo = hasStrongFlutterSignal(args.profile);
+  const ranked = STACK_SPECIALIZERS.map((config) => {
+    const frameworkScore = (config.frameworkNames ?? [])
+      .map((name) => args.profile.frameworks.find((framework) => framework.name === name)?.confidence ?? 0)
+      .reduce((max, value) => Math.max(max, value), 0);
+    const languageScore = (config.languageNames ?? [])
+      .map((name) => args.profile.languages.find((language) => language.name === name)?.confidence ?? 0)
+      .reduce((max, value) => Math.max(max, value), 0);
+    const requiresFrameworkMatch = (config.frameworkNames?.length ?? 0) > 0;
+    const eligible = requiresFrameworkMatch
+      ? frameworkScore >= 0.5 && (!flutterRepo || (config.key !== "android" && config.key !== "ios"))
+      : Math.max(frameworkScore, languageScore) >= 0.5;
+
+    return {
+      config,
+      score: frameworkScore > 0 ? frameworkScore + languageScore * 0.1 : languageScore,
+      eligible
+    };
+  })
+    .filter((item) => item.eligible && item.score >= 0.5)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 3);
+
+  const sections: RulebookSection[] = [];
+
+  for (const item of ranked) {
+    const { config } = item;
+    const evidence = profileEvidenceForNames(args.profile, config.frameworkNames, config.languageNames);
+    const bullets: string[] = [withEvidence(config.intro, evidence)];
+
+    let patternMatches = 0;
+    for (const descriptor of config.patterns) {
+      const candidateFiles = patternFilesForDescriptor(args.files, descriptor);
+      if (candidateFiles.length === 0) continue;
+      const hit = await collectPatternEvidence({
+        repoRoot: args.repoRoot,
+        files: candidateFiles,
+        pattern: descriptor.pattern,
+        maxEvidence: 4
+      });
+      if (hit.count === 0) continue;
+      patternMatches += 1;
+      bullets.push(withEvidence(`${displayFrameworkName(config.key)} repo pattern detected: ${descriptor.label}. ${descriptor.guidance}`, hit.evidence));
+    }
+
+    if (patternMatches === 0) {
+      bullets.push(withEvidence(`No high-signal ${displayFrameworkName(config.key)} sub-pattern was auto-detected beyond stack signals; preserve the touched files' local structure and apply only compatible standards.`, evidence));
+    }
+
+    for (const standard of config.standards) {
+      bullets.push(withEvidence(`Compatible standards overlay: ${standard}`, evidence));
+    }
+    for (const antiPattern of config.antiPatterns) {
+      bullets.push(withEvidence(`Avoid: ${antiPattern}`, evidence));
+    }
+
+    sections.push({
+      title: config.title,
+      bullets
+    });
+  }
+
+  return sections;
+}
+
 function filterFilesForLanguage(files: string[], language: string): string[] {
   const extensions = LANGUAGE_EXTENSION_MAP[language] ?? [];
   if (extensions.length === 0) return files;
@@ -476,7 +1036,7 @@ async function buildLanguageMandatoryBullets(args: {
   hasLaravel: boolean;
   toolingCandidates: string[];
 }): Promise<string[]> {
-  const strictLanguages = args.profile.languages.filter((language) => language.confidence >= 0.25);
+  const strictLanguages = visibleLanguagesForRulebook(args.profile).filter((language) => language.confidence >= 0.25);
   const bullets: string[] = [];
 
   for (const language of strictLanguages) {
@@ -1106,6 +1666,8 @@ export async function buildRulebook(profile: ProjectProfile, policy?: Partial<Ru
   let functionHits = 0;
   let longFileCount = 0;
   const longFileEvidence: string[] = [];
+  const visibleLanguages = visibleLanguagesForRulebook(profile);
+  const visibleFrameworks = visibleFrameworksForRulebook(profile);
 
   for (const file of sampleForMetrics) {
     const content = await readText(repoRoot, file, 128_000);
@@ -1122,7 +1684,7 @@ export async function buildRulebook(profile: ProjectProfile, policy?: Partial<Ru
     if (/\b(function|def|fn)\b/.test(content)) functionHits += 1;
   }
 
-  const languageConventions = profile.languages.slice(0, 8).map((language) => {
+  const languageConventions = visibleLanguages.slice(0, 8).map((language) => {
     const base = (() => {
       switch (language.name) {
         case "typescript":
@@ -1153,7 +1715,7 @@ export async function buildRulebook(profile: ProjectProfile, policy?: Partial<Ru
     return withEvidence(base, language.evidence);
   });
 
-  const frameworkConventions = profile.frameworks.slice(0, 10).map((framework) => {
+  const frameworkConventions = visibleFrameworks.slice(0, 10).map((framework) => {
     const base = (() => {
       switch (framework.name) {
         case "react":
@@ -1187,20 +1749,20 @@ export async function buildRulebook(profile: ProjectProfile, policy?: Partial<Ru
     return withEvidence(base, framework.evidence);
   });
 
-  const strongFrameworks = profile.frameworks.filter((framework) => framework.confidence >= 0.6);
-  const mixedLanguage = profile.languages.filter((language) => language.confidence >= 0.25).length >= 3;
+  const strongFrameworks = visibleFrameworks.filter((framework) => framework.confidence >= 0.6);
+  const mixedLanguage = visibleLanguages.filter((language) => language.confidence >= 0.25).length >= 3;
   const weakSignals = strongFrameworks.length === 0;
   const isBootstrapProfile = profile.guardrails.notes.some((note) => /bootstrapp?ed/i.test(note));
   const hasLaravel = profile.frameworks.some((framework) => framework.name === "laravel" && framework.confidence >= 0.5);
 
   const snapshot: string[] = [
     withEvidence(
-      `Detected frameworks: ${profile.frameworks.map((framework) => `${framework.name} (${framework.confidence})`).join(", ") || "none"}.`,
-      profile.frameworks.flatMap((framework) => framework.evidence)
+      `Detected frameworks: ${visibleFrameworks.map((framework) => `${framework.name} (${framework.confidence})`).join(", ") || "none"}.`,
+      visibleFrameworks.flatMap((framework) => framework.evidence)
     ),
     withEvidence(
-      `Detected languages: ${profile.languages.map((language) => `${language.name} (${language.confidence})`).join(", ") || "none"}.`,
-      profile.languages.flatMap((language) => language.evidence)
+      `Detected languages: ${visibleLanguages.map((language) => `${language.name} (${language.confidence})`).join(", ") || "none"}.`,
+      visibleLanguages.flatMap((language) => language.evidence)
     ),
     withEvidence(
       `Build command coverage: install=${profile.build.commands.install ? "yes" : "no"}, build=${profile.build.commands.build ? "yes" : "no"}, test=${profile.build.commands.test ? "yes" : "no"}, lint=${profile.build.commands.lint ? "yes" : "no"}, format=${profile.build.commands.format ? "yes" : "no"}.`,
@@ -1270,6 +1832,13 @@ export async function buildRulebook(profile: ProjectProfile, policy?: Partial<Ru
   }
   sections.push({ title: "Language and Framework Practices", bullets: langFrameworkBullets });
 
+  const hybridStackSections = await buildHybridStackSections({
+    repoRoot,
+    files: sourceFiles,
+    profile
+  });
+  sections.push(...hybridStackSections);
+
   const healthBullets: string[] = [
     `Sampled code files for structural metrics: ${sampleForMetrics.length}.`,
     `Files with import/use-style module wiring: ${importHits}.`,
@@ -1293,7 +1862,7 @@ export async function buildRulebook(profile: ProjectProfile, policy?: Partial<Ru
       bullets: [
         withEvidence(
           "No single dominant framework signal found or the repository is strongly polyglot; treat it as a mixed/legacy codebase and enforce incremental standardization.",
-          profile.frameworks.flatMap((framework) => framework.evidence)
+          visibleFrameworks.flatMap((framework) => framework.evidence)
         ),
         "Before broad refactors, codify target boundaries per top-level directory and migrate one boundary at a time.",
         "Require evidence-backed architecture decisions: every new pattern should cite existing files that justify it.",

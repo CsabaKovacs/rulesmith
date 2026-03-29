@@ -1,0 +1,19 @@
+{
+  "name": "next_min",
+  "private": true,
+  "scripts": {
+    "build": "next build",
+    "test": "vitest run",
+    "lint": "next lint",
+    "format": "prettier --write .",
+    "dev": "next dev"
+  },
+  "dependencies": {
+    "next": "^15.0.0",
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}
