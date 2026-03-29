@@ -1,3 +1,5 @@
+import { NextResponse } from "next/server";
+
 export function middleware() {
-  return;
+  return NextResponse.redirect(new URL("/login", "https://example.test"));
 }

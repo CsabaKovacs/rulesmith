@@ -200,6 +200,9 @@ describe("renderer", () => {
     expect(agents?.content).toContain("Flutter Hybrid Conventions");
     expect(agents?.content).toContain("Detected frameworks: flutter (1).");
     expect(agents?.content).toContain("Format command: dart format .");
+    expect(agents?.content).toContain("Repository-specific convention (flow): Completion flows already reset navigation back to the shell or root after setup/auth success");
+    expect(agents?.content).toContain("Repository-specific convention (errors): Typed exception handling is already explicit in code");
+    expect(agents?.content).toContain("Repository-specific convention (delivery): Repository docs or integration notes already coexist with contract-bearing code");
     expect(agents?.content).toContain("Repository-specific convention (routing): Toolchain-confirmed Dart navigation and app-shell ownership is already explicit in validated Flutter source files");
     expect(agents?.content).toContain("Repository-specific convention (database): Parser-confirmed SQL schema/query boundaries already exist through explicit statements");
     expect(agents?.content).toContain("Repository-specific convention (security): Parser-confirmed shell safety guards are already present");
@@ -221,11 +224,60 @@ describe("renderer", () => {
 
     const agents = files.find((f) => f.path === "AGENTS.md");
     expect(agents?.content).toContain("Next.js Hybrid Conventions");
+    expect(agents?.content).toContain("Repository-specific convention (flow): The repository already has explicit middleware or redirect flow control for guarded entrypoints");
+    expect(agents?.content).toContain("Repository-specific convention (delivery): Repository docs or integration notes already coexist with contract-bearing code");
     expect(agents?.content).toContain("Repository-specific convention (routing): Next.js routing boundaries are already expressed through app/pages directories");
     expect(agents?.content).toContain("Repository-specific convention (routing): Next.js route ownership is AST-visible through exported HTTP handlers, metadata exports, middleware, or pages data-loader functions");
     expect(agents?.content).toContain("Repository-specific convention (data): AST-confirmed service/repository/client boundaries already exist through named code symbols");
     expect(agents?.content).toContain("Repository-specific convention (validation): Validation and contract objects already live in dedicated request/schema boundaries");
     expect(agents?.content).toContain("Repository-specific convention (testing): The repository already separates automated verification into dedicated test boundaries");
+  });
+
+  it("retains high-signal repo specifics for React, Express, and Vue fixtures", async () => {
+    const [reactFiles, expressFiles, vueFiles] = await Promise.all([
+      renderRules({
+        repoPath: path.join(fixturesRoot, "react_min"),
+        pack: "default",
+        targets: { codex: true, copilot: false, claude: false, junie: false, gemini: false, antigravity: false },
+        policy: {
+          strictness: "very-strict",
+          standards: "project-plus-standard"
+        }
+      }),
+      renderRules({
+        repoPath: path.join(fixturesRoot, "express_min"),
+        pack: "default",
+        targets: { codex: true, copilot: false, claude: false, junie: false, gemini: false, antigravity: false },
+        policy: {
+          strictness: "very-strict",
+          standards: "project-plus-standard"
+        }
+      }),
+      renderRules({
+        repoPath: path.join(fixturesRoot, "vue_min"),
+        pack: "default",
+        targets: { codex: true, copilot: false, claude: false, junie: false, gemini: false, antigravity: false },
+        policy: {
+          strictness: "very-strict",
+          standards: "project-plus-standard"
+        }
+      })
+    ]);
+
+    const reactAgents = reactFiles.find((f) => f.path === "AGENTS.md");
+    const expressAgents = expressFiles.find((f) => f.path === "AGENTS.md");
+    const vueAgents = vueFiles.find((f) => f.path === "AGENTS.md");
+
+    expect(reactAgents?.content).toContain("Repository-specific convention (flow): The repository already encodes important redirect or navigation-flow rules in code");
+    expect(reactAgents?.content).toContain("Repository-specific convention (errors): Typed exception handling is already explicit in code");
+    expect(reactAgents?.content).toContain("Repository-specific convention (delivery): Repository docs or integration notes already coexist with contract-bearing code");
+
+    expect(expressAgents?.content).toContain("Repository-specific convention (flow): Request flows already use explicit redirect or handoff boundaries in handlers or middleware");
+    expect(expressAgents?.content).toContain("Repository-specific convention (errors): Typed exception handling is already explicit in code");
+    expect(expressAgents?.content).toContain("Repository-specific convention (delivery): Repository docs or integration notes already coexist with contract-bearing code");
+
+    expect(vueAgents?.content).toContain("Repository-specific convention (flow): The repository already encodes important route or redirect behavior through Vue router boundaries");
+    expect(vueAgents?.content).toContain("Repository-specific convention (delivery): Repository docs or integration notes already coexist with contract-bearing code");
   });
 
   it("surfaces stack-specific semantic conventions for NestJS and FastAPI", async () => {

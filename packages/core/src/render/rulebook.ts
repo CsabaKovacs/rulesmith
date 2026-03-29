@@ -396,6 +396,13 @@ type SemanticBoundaryDescriptor = {
   text: string;
 };
 
+type RetentionDescriptor = {
+  topic: string;
+  pathPattern?: RegExp;
+  contentPattern: RegExp;
+  text: string;
+};
+
 const LANGUAGE_PATTERNS: Record<string, LanguagePatternDescriptor[]> = {
   javascript: [
     { label: "ES module imports/exports", pattern: /\bimport\b[\s\S]{0,120}\bfrom\b|\bexport\s+(default|const|function|class)\b/ },
@@ -966,6 +973,121 @@ const FRAMEWORK_SEMANTIC_BOUNDARY_DESCRIPTORS: Record<string, SemanticBoundaryDe
   ]
 };
 
+const GENERIC_RETENTION_DESCRIPTORS: RetentionDescriptor[] = [
+  {
+    topic: "errors",
+    pathPattern: /\.(dart|ts|tsx|js|jsx|py|php|java|kt|cs|swift)$/,
+    contentPattern:
+      /\bon\s+[A-Z][A-Za-z0-9_]*(Exception|Error)(\s+catch\b|\s*\{)|\binstanceof\s+[A-Z][A-Za-z0-9_]*(Exception|Error)\b|catch\s*\([^)]*:\s*[A-Z][A-Za-z0-9_<>]*(Exception|Error)\b[^)]*\)/,
+    text: "Typed exception handling is already explicit in code; preserve the current exception-first handling order before falling back to generic error paths."
+  },
+  {
+    topic: "security",
+    pathPattern: /\.sql$/,
+    contentPattern: /\bsecurity\s+definer\b|\bcreate\s+policy\b|\benable\s+row\s+level\s+security\b|\bset\s+search_path\s*=\s*''/i,
+    text: "Authorization or privileged data access is already centralized in database-side policy or RPC helpers; preserve that backend ownership instead of duplicating critical authorization in clients."
+  }
+];
+
+const FRAMEWORK_RETENTION_DESCRIPTORS: Record<string, RetentionDescriptor[]> = {
+  flutter: [
+    {
+      topic: "flow",
+      pathPattern: /\.dart$/,
+      contentPattern: /\bpopUntil\s*\(\s*\(\s*route\s*\)\s*=>\s*route\.isFirst\s*\)|\bpushNamedAndRemoveUntil\b|\bpushAndRemoveUntil\b/,
+      text: "Completion flows already reset navigation back to the shell or root after setup/auth success; preserve that reset behavior unless the task is an explicit UX migration."
+    }
+  ],
+  vue: [
+    {
+      topic: "flow",
+      pathPattern: /\.(vue|ts|js)$/,
+      contentPattern: /\brouter\.(push|replace)\s*\(|\buseRouter\s*\(|\bcreateRouter\s*\(|\bbeforeEach\s*\(/,
+      text: "The repository already encodes important route or redirect behavior through Vue router boundaries; preserve those guarded flow transitions instead of scattering alternate navigation control."
+    }
+  ],
+  react: [
+    {
+      topic: "flow",
+      pathPattern: /\.(tsx|jsx|ts|js)$/,
+      contentPattern: /\bnavigate\s*\(|\brouter\.(push|replace)\s*\(|\bhistory\.(push|replace)\s*\(|\bredirect\s*\(/,
+      text: "The repository already encodes important redirect or navigation-flow rules in code; preserve those entry or completion transitions instead of scattering alternate flow control."
+    }
+  ],
+  nextjs: [
+    {
+      topic: "flow",
+      pathPattern: /(^|\/)(app|pages|middleware|src\/app|src\/pages)\/.*\.(tsx|jsx|ts|js)$|middleware\.(ts|js)$/,
+      contentPattern: /\bNextResponse\.redirect\b|\bredirect\s*\(/,
+      text: "The repository already has explicit middleware or redirect flow control for guarded entrypoints; preserve that route-gating behavior instead of re-implementing it ad hoc in pages."
+    }
+  ],
+  express: [
+    {
+      topic: "flow",
+      pathPattern: /\.(ts|js)$/,
+      contentPattern: /\bres\.redirect\s*\(|\breturn\s+redirect\s*\(/,
+      text: "Request flows already use explicit redirect or handoff boundaries in handlers or middleware; preserve those completion paths instead of inventing parallel routing behavior."
+    }
+  ],
+  nest: [
+    {
+      topic: "security",
+      pathPattern: /\.(ts|js)$/,
+      contentPattern: /@UseGuards\b|\bCanActivate\b|\bAuthGuard\b/,
+      text: "Authorization is already centralized through Nest guards or guard contracts; preserve that boundary instead of scattering access checks through controllers or services."
+    }
+  ],
+  fastapi: [
+    {
+      topic: "security",
+      pathPattern: /\.py$/,
+      contentPattern: /\bDepends\([^)]*(current_user|current_admin|require_|permission|role)|Security\(/,
+      text: "Access-control decisions are already expressed through FastAPI dependency boundaries; preserve those guard-style dependencies instead of duplicating auth checks inside handlers."
+    }
+  ],
+  django: [
+    {
+      topic: "security",
+      pathPattern: /\.py$/,
+      contentPattern: /\bpermission_classes\b|\bIsAuthenticated\b|\blogin_required\b|\buser_passes_test\b/,
+      text: "Access-control checks are already centralized through Django or DRF permission boundaries; preserve those guards instead of scattering authorization logic into views and helpers."
+    }
+  ],
+  "spring-boot": [
+    {
+      topic: "security",
+      pathPattern: /\.(java|kt)$/,
+      contentPattern: /@PreAuthorize\b|@Secured\b|HttpSecurity|SecurityFilterChain/,
+      text: "Security ownership is already centralized in Spring security annotations or filter-chain configuration; preserve that boundary instead of duplicating authorization inside controllers."
+    }
+  ],
+  aspnet: [
+    {
+      topic: "security",
+      pathPattern: /\.cs$/,
+      contentPattern: /\[Authorize\b|RequireAuthorization\(|IAuthorizationService/,
+      text: "Authorization is already explicit in ASP.NET attributes or endpoint policies; preserve that policy boundary instead of scattering authorization checks through handlers."
+    }
+  ],
+  android: [
+    {
+      topic: "flow",
+      pathPattern: /\.(kt|java)$/,
+      contentPattern: /\bpopBackStack\s*\(|\bnavigate\s*\(|\bfinish\s*\(/,
+      text: "Android flow transitions are already explicit in navigation or activity lifecycle calls; preserve those completion/reset behaviors instead of layering a second flow model."
+    }
+  ],
+  ios: [
+    {
+      topic: "flow",
+      pathPattern: /\.swift$/,
+      contentPattern: /\bdismiss\s*\(|\bpopToRootViewController\s*\(|\bNavigationStack\b|\bnavigationDestination\b/,
+      text: "iOS flow completion is already encoded in coordinator or navigation APIs; preserve those existing reset or handoff paths when changing user journeys."
+    }
+  ]
+};
+
 async function extractSemanticBoundaryConventionCandidates(
   repoRoot: string,
   files: string[],
@@ -993,6 +1115,84 @@ async function extractSemanticBoundaryConventionCandidates(
       text: descriptor.text,
       evidence: hit.evidence
     });
+  }
+
+  return candidates;
+}
+
+function contractEvidenceFiles(files: string[], frameworkKey?: string): string[] {
+  const generic = files.filter((file) =>
+    /(^|\/)(migrations?|schema|openapi|swagger|routes?|router|api|controllers?|services?|auth)\//i.test(file)
+  );
+  if (frameworkKey === "flutter") {
+    return files.filter((file) => /(^|\/)(supabase\/migrations|lib\/src\/(auth|data|state)|README\.md$)/i.test(file));
+  }
+  if (frameworkKey === "nextjs") {
+    return files.filter((file) => /(^|\/)(app\/api|middleware\.|lib\/validation|lib\/server|README\.md$)/i.test(file));
+  }
+  if (frameworkKey === "react") {
+    return files.filter((file) => /(^|\/)(src\/(services?|api|router)|README\.md$)/i.test(file));
+  }
+  if (frameworkKey === "express") {
+    return files.filter((file) => /(^|\/)(src\/(server|routes?|controllers?|services?|auth)|README\.md$)/i.test(file));
+  }
+  if (frameworkKey === "vue") {
+    return files.filter((file) => /(^|\/)(src\/(router|services?|api|stores?)|README\.md$)/i.test(file));
+  }
+  return generic;
+}
+
+async function extractRetentionConventionCandidates(
+  repoRoot: string,
+  files: string[],
+  frameworkKey?: string
+): Promise<ConventionCandidate[]> {
+  const candidates: ConventionCandidate[] = [];
+  const seen = new Set<string>();
+  const descriptors = [...(frameworkKey ? FRAMEWORK_RETENTION_DESCRIPTORS[frameworkKey] ?? [] : []), ...GENERIC_RETENTION_DESCRIPTORS];
+
+  for (const descriptor of descriptors) {
+    const candidateFiles = descriptor.pathPattern ? files.filter((file) => descriptor.pathPattern?.test(file)) : files;
+    const hit = await collectPatternEvidence({
+      repoRoot,
+      files: candidateFiles,
+      pattern: descriptor.contentPattern,
+      maxEvidence: 4
+    });
+    if (hit.count === 0) continue;
+    const key = `${descriptor.topic}:${descriptor.text}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    candidates.push({
+      topic: descriptor.topic,
+      source: "repo",
+      text: descriptor.text,
+      evidence: hit.evidence
+    });
+  }
+
+  const readmeEvidence = files.find((file) => /(^|\/)README\.md$/i.test(file));
+  const contractEvidence = contractEvidenceFiles(files, frameworkKey).filter((file) => file !== readmeEvidence);
+  if (readmeEvidence && contractEvidence.length > 0) {
+    candidates.push({
+      topic: "delivery",
+      source: "repo",
+      text: "Repository docs or integration notes already coexist with contract-bearing code; keep README or nearby docs synchronized when auth, API, schema, or join-flow contracts change.",
+      evidence: [readmeEvidence, ...contractEvidence.slice(0, 3)]
+    });
+  }
+
+  if (frameworkKey === "flutter") {
+    const authEvidence = files.filter((file) => /(^|\/)(auth)\//i.test(file)).slice(0, 2);
+    const dataEvidence = files.filter((file) => /(^|\/)(data|services?)\//i.test(file)).slice(0, 2);
+    if (authEvidence.length > 0 && dataEvidence.length > 0) {
+      candidates.push({
+        topic: "data",
+        source: "repo",
+        text: "Auth/session bootstrap and family data access already live in distinct service boundaries; preserve that separation instead of folding them into screens or one catch-all service.",
+        evidence: [...authEvidence, ...dataEvidence].slice(0, 4)
+      });
+    }
   }
 
   return candidates;
@@ -1481,6 +1681,7 @@ async function buildHybridStackSections(args: {
     const evidence = profileEvidenceForNames(args.profile, config.frameworkNames, config.languageNames);
     const bullets: string[] = [withEvidence(config.intro, evidence)];
     const candidates: ConventionCandidate[] = [
+      ...(await extractRetentionConventionCandidates(args.repoRoot, args.files, config.key)),
       ...(await extractAstConventionCandidates(args.repoRoot, args.files, config.key)),
       ...extractBoundaryConventionCandidates(config.key, args.files),
       ...(await extractSemanticBoundaryConventionCandidates(args.repoRoot, args.files, config.key))
