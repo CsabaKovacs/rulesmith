@@ -25,29 +25,25 @@ Follow these steps in order:
 
 ## Stack-Specific Rules
 
-- Enforce strict TypeScript: flag `any` types, missing return types on exported functions, and implicit type coercion.
-- Verify `.js` extensions in import paths (NodeNext module resolution). (evidence: packages/core/src/index.ts)
-- Check that Zod schemas are used for validation at boundaries. (evidence: packages/core/src/profile/schema.ts)
-- Verify new exports are added to barrel `src/index.ts`. (evidence: packages/core/src/index.ts)
-- Check that file I/O goes through `safe.ts` helpers. (evidence: packages/core/src/fs/safe.ts)
-- Verify module-level function pattern — no unnecessary class wrappers. (evidence: packages/core/src/scanner/index.ts)
+- Enforce strict TypeScript: flag `any` types, missing return types on exported functions.
+- Verify `.js` extensions in import paths (NodeNext). (evidence: packages/core/src/index.ts)
+- Check Zod schemas at boundaries. (evidence: packages/core/src/profile/schema.ts)
+- Verify barrel exports. (evidence: packages/core/src/index.ts)
+- Check file I/O through `safe.ts`. (evidence: packages/core/src/fs/safe.ts)
+- Module-level functions, no class wrappers. (evidence: packages/core/src/scanner/index.ts)
 
 ## Project Conventions to Enforce
 
-### Build, Test, and Tooling
-- Install: `pnpm install`. Build: `pnpm -r build`. Test: `pnpm -r test`. Lint: `pnpm -r lint`. (evidence: package.json)
-
 ### Architecture
 - 3-package monorepo: core, cli, mcp. New features: core → barrel → CLI + MCP. (evidence: pnpm-workspace.yaml)
-- Templates in `packs/default/templates/`. `examples/fixtures/` is test data only. (evidence: packs/default/)
+- Templates in `packs/default/templates/`. `examples/fixtures/` is test data. (evidence: packs/default/)
+
+### Code Style
+- Constants: UPPER_SNAKE_CASE. Functions: camelCase. Types: PascalCase.
+- `Record<string, unknown>` for JSON, never `any`. Private helpers unexported.
 
 ### Execution Guardrails
-- Forbidden paths: `.git`, `node_modules`, `dist/`, `vendor/`. (evidence: .gitignore)
-
-### Implementation Playbook
-- Constants: UPPER_SNAKE_CASE. Functions: camelCase. Types: PascalCase.
-- Private helpers are unexported module-scoped functions.
-- `Record<string, unknown>` for untyped JSON, never `any`.
+- Forbidden paths: `.git`, `node_modules`, `dist/`, `vendor/`.
 
 ## Boundaries
 

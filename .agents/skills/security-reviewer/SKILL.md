@@ -21,7 +21,7 @@ Follow these steps in order:
 - Check write operations restricted to `WRITE_ALLOWLIST`. (evidence: packages/core/src/fs/safe.ts)
 - Verify MCP tool inputs validated via Zod schemas. (evidence: packages/mcp/src/server.ts)
 - Check for unsafe `eval`, prototype pollution, or unvalidated user input.
-- Verify symlink handling — `readFileSafe` rejects symlinks. (evidence: packages/core/src/fs/safe.ts)
+- Verify symlink rejection in `readFileSafe`. (evidence: packages/core/src/fs/safe.ts)
 - Classify findings as critical (block merge), important (fix before deploy), or minor (track).
 - Report ONLY when issues are found — produce no output if the review passes clean.
 
