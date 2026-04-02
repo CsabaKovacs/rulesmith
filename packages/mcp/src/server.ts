@@ -116,7 +116,12 @@ function buildBootstrapSpecializationPrompt(args: {
     "- Go: gofmt/goimports + explicit error handling.",
     "- Dart/Flutter: dart format + flutter analyze.",
     "",
-    "Must enforce DRY without premature abstraction, avoid mega files, and require documentation updates for behavior/contract changes."
+    "Must enforce DRY without premature abstraction, avoid mega files, and require documentation updates for behavior/contract changes.",
+    "",
+    "CRITICAL — preserve these universal sections (condense/reword OK, but never remove):",
+    "- Testing Minimum Bar: require tests for non-trivial changes, regression checks for auth/route changes, smoke verification for refactors.",
+    "- Dependency and Change Safety Policy: rationale for new deps, migration plans for breaking changes, API contract stability.",
+    "- Definition of Done: standards alignment, test updates, doc updates, explicit UNKNOWN/TODO."
   ].join("\n");
 }
 

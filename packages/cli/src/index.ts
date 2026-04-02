@@ -238,7 +238,12 @@ function buildBootstrapSpecializationPrompt(args: {
     "- DRY without premature abstraction.",
     "- Avoid mega files; keep high cohesion and clear responsibilities.",
     "- Require documentation standards (PHPDoc/TSDoc/docstrings/Go doc/etc.) for public interfaces.",
-    "- Require developer + user documentation updates when behavior/contracts change."
+    "- Require developer + user documentation updates when behavior/contracts change.",
+    "",
+    "CRITICAL — these universal sections MUST survive specialization (condense/reword OK, never remove):",
+    "- Testing Minimum Bar: require tests for non-trivial changes, regression checks for auth/route changes, smoke verification for refactors.",
+    "- Dependency and Change Safety Policy: rationale for new deps, migration plans for breaking changes, API contract stability.",
+    "- Definition of Done: standards alignment, test updates, doc updates, explicit UNKNOWN/TODO."
   ].join("\n");
 }
 
