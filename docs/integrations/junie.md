@@ -48,7 +48,7 @@ Prompt example:
 ```text
 Use rulesmith MCP on this repository.
 Run scan_repo, build_evidence_bundle with includeContent=false, then use list_files/search/read_files to collect concrete evidence.
-Generate AGENTS.md, CLAUDE.md, GEMINI.md, and GitHub Copilot instruction files.
+Generate AGENTS.md, CLAUDE.md, GEMINI.md, GitHub Copilot instruction files, and agent workflow files (.junie/skills/, .agents/skills/).
 Also generate .junie/guidelines.md for Junie-specific behavior and .agent/rules/rulesmith.instructions.md for Antigravity rules compatibility.
 Show diff before apply.
 ```

@@ -39,7 +39,7 @@ Run:
 1) scan_repo
 2) build_evidence_bundle with focus="generic", maxFiles=2000, includeContent=false
 3) expand evidence with list_files/search/read_files
-4) generate/update AGENTS.md, CLAUDE.md, GEMINI.md, .junie/guidelines.md, .agent/rules/rulesmith.instructions.md, and Copilot instruction files
+4) generate/update AGENTS.md, CLAUDE.md, GEMINI.md, .junie/guidelines.md, .agent/rules/rulesmith.instructions.md, Copilot instruction files, and agent workflow files (.agents/skills/)
 5) show diff first, then apply in safe mode
 ```
 

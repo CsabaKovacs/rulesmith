@@ -96,11 +96,11 @@ Targets:
 8) Use the returned prompt to AI-specialize the generated rule files (standards, best practices, strict quality gates).
 9) Show specialization diff; if valid run apply_rules in safe mode.
 10) Validate outputs in target repo for selected targets only:
-- codex -> AGENTS.md
-- claude -> CLAUDE.md
-- gemini -> GEMINI.md
-- copilot -> .github/copilot-instructions.md (and optional .github/instructions/*.instructions.md)
-- junie -> .junie/guidelines.md
+- codex -> AGENTS.md + .agents/skills/{code-reviewer,security-reviewer,code-simplifier,test-guard}/SKILL.md
+- claude -> CLAUDE.md + .claude/agents/{code-reviewer,security-reviewer,code-simplifier,test-guard}.md
+- gemini -> GEMINI.md + .agents/skills/{code-reviewer,security-reviewer,code-simplifier,test-guard}/SKILL.md
+- copilot -> .github/copilot-instructions.md (and optional .github/instructions/*.instructions.md) + .agents/skills/{code-reviewer,security-reviewer,code-simplifier,test-guard}/SKILL.md
+- junie -> .junie/guidelines.md + .junie/skills/{code-reviewer,security-reviewer,code-simplifier,test-guard}/SKILL.md
 - antigravity -> .agent/rules/rulesmith.instructions.md
 11) Return a short final report with:
 - rulesmith install path
@@ -206,11 +206,11 @@ What to do:
 
 6) Validate outputs in target repo for selected targets only
 Use this mapping:
-- codex -> AGENTS.md
-- claude -> CLAUDE.md
-- gemini -> GEMINI.md
-- copilot -> .github/copilot-instructions.md (and optional .github/instructions/*.instructions.md)
-- junie -> .junie/guidelines.md
+- codex -> AGENTS.md + .agents/skills/{code-reviewer,security-reviewer,code-simplifier,test-guard}/SKILL.md
+- claude -> CLAUDE.md + .claude/agents/{code-reviewer,security-reviewer,code-simplifier,test-guard}.md
+- gemini -> GEMINI.md + .agents/skills/{code-reviewer,security-reviewer,code-simplifier,test-guard}/SKILL.md
+- copilot -> .github/copilot-instructions.md (and optional .github/instructions/*.instructions.md) + .agents/skills/{code-reviewer,security-reviewer,code-simplifier,test-guard}/SKILL.md
+- junie -> .junie/guidelines.md + .junie/skills/{code-reviewer,security-reviewer,code-simplifier,test-guard}/SKILL.md
 - antigravity -> .agent/rules/rulesmith.instructions.md
 
 7) Final report (required)
@@ -254,11 +254,11 @@ Escalation rule:
 ## Output mapping
 
 Validate outputs in the target repo for selected targets only:
-- codex -> AGENTS.md
-- claude -> CLAUDE.md
-- gemini -> GEMINI.md
-- copilot -> .github/copilot-instructions.md (and optional .github/instructions/*.instructions.md)
-- junie -> .junie/guidelines.md
+- codex -> AGENTS.md + .agents/skills/{code-reviewer,security-reviewer,code-simplifier,test-guard}/SKILL.md
+- claude -> CLAUDE.md + .claude/agents/{code-reviewer,security-reviewer,code-simplifier,test-guard}.md
+- gemini -> GEMINI.md + .agents/skills/{code-reviewer,security-reviewer,code-simplifier,test-guard}/SKILL.md
+- copilot -> .github/copilot-instructions.md (and optional .github/instructions/*.instructions.md) + .agents/skills/{code-reviewer,security-reviewer,code-simplifier,test-guard}/SKILL.md
+- junie -> .junie/guidelines.md + .junie/skills/{code-reviewer,security-reviewer,code-simplifier,test-guard}/SKILL.md
 - antigravity -> .agent/rules/rulesmith.instructions.md
 
 ## MCP bundle cleanup behavior

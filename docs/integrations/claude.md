@@ -56,7 +56,7 @@ Then restart Claude Desktop.
 ```text
 Use rulesmith MCP as evidence provider only.
 Run scan_repo, build_evidence_bundle (includeContent=false), then deepen with list_files/search/read_files.
-Generate strict project-specific AGENTS.md, CLAUDE.md, GEMINI.md, .junie/guidelines.md, .agent/rules/rulesmith.instructions.md, and Copilot instruction files with evidence-backed claims.
+Generate strict project-specific AGENTS.md, CLAUDE.md, GEMINI.md, .junie/guidelines.md, .agent/rules/rulesmith.instructions.md, Copilot instruction files, and agent workflow files (.claude/agents/, .agents/skills/) with evidence-backed claims.
 Show diff before apply.
 ```
 
