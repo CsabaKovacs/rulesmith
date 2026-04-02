@@ -38,6 +38,75 @@ describe("renderer", () => {
     expect(area?.content).toContain("Area-Specific Conventions");
 
     expect(files.map((f) => f.path).sort()).toMatchSnapshot();
+
+    // Verify Claude subagent files are generated
+    const codeReviewer = files.find((f) => f.path === ".claude/agents/code-reviewer.md");
+    const securityReviewer = files.find((f) => f.path === ".claude/agents/security-reviewer.md");
+    expect(codeReviewer).toBeDefined();
+    expect(securityReviewer).toBeDefined();
+    expect(codeReviewer?.content).toContain("name: code-reviewer");
+    expect(codeReviewer?.content).toContain("Code Quality Reviewer");
+    expect(codeReviewer?.content).toContain("Stack-Specific Rules");
+    expect(securityReviewer?.content).toContain("name: security-reviewer");
+    expect(securityReviewer?.content).toContain("Security Reviewer");
+    expect(securityReviewer?.content).toContain("Stack-Specific Security Rules");
+  });
+
+  it("does not generate subagent files when claude target is disabled", async () => {
+    const files = await renderRules({
+      repoPath: path.join(fixturesRoot, "laravel_messy_min"),
+      pack: "default",
+      targets: { codex: true, copilot: false, claude: false, junie: false, gemini: false, antigravity: false }
+    });
+
+    const agentFiles = files.filter((f) => f.path.startsWith(".claude/agents/"));
+    expect(agentFiles).toHaveLength(0);
+  });
+
+  it("generates cross-platform skill files for codex target", async () => {
+    const files = await renderRules({
+      repoPath: path.join(fixturesRoot, "node_ts_min"),
+      pack: "default",
+      targets: { codex: true, copilot: false, claude: false, junie: false, gemini: false, antigravity: false }
+    });
+
+    const codeSkill = files.find((f) => f.path === ".agents/skills/code-reviewer/SKILL.md");
+    const securitySkill = files.find((f) => f.path === ".agents/skills/security-reviewer/SKILL.md");
+    expect(codeSkill).toBeDefined();
+    expect(securitySkill).toBeDefined();
+    expect(codeSkill?.content).toContain("Code Quality Review");
+    expect(codeSkill?.content).toContain("description:");
+    expect(securitySkill?.content).toContain("Security Review");
+    expect(securitySkill?.content).toContain("description:");
+  });
+
+  it("generates junie-specific skill files for junie target", async () => {
+    const files = await renderRules({
+      repoPath: path.join(fixturesRoot, "node_ts_min"),
+      pack: "default",
+      targets: { codex: false, copilot: false, claude: false, junie: true, gemini: false, antigravity: false }
+    });
+
+    const junieSkill = files.find((f) => f.path === ".junie/skills/code-reviewer/SKILL.md");
+    expect(junieSkill).toBeDefined();
+    expect(junieSkill?.content).toContain("Code Quality Review");
+
+    // Should NOT generate cross-platform .agents/skills/ when only junie is selected
+    const crossPlatformSkills = files.filter((f) => f.path.startsWith(".agents/skills/"));
+    expect(crossPlatformSkills).toHaveLength(0);
+  });
+
+  it("does not generate skill files when no skill-eligible target is selected", async () => {
+    const files = await renderRules({
+      repoPath: path.join(fixturesRoot, "node_ts_min"),
+      pack: "default",
+      targets: { codex: false, copilot: false, claude: true, junie: false, gemini: false, antigravity: false }
+    });
+
+    const crossPlatformSkills = files.filter((f) => f.path.startsWith(".agents/skills/"));
+    const junieSkills = files.filter((f) => f.path.startsWith(".junie/skills/"));
+    expect(crossPlatformSkills).toHaveLength(0);
+    expect(junieSkills).toHaveLength(0);
   });
 
   it("renders detailed generic rulebook for mixed-language fixture", async () => {

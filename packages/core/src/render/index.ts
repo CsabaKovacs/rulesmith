@@ -6,6 +6,8 @@ import { writeFileSafe } from "../fs/safe.js";
 import { getPack, listPacks } from "../packs/index.js";
 import type { ProjectProfile } from "../profile/schema.js";
 import { buildRulebook, MANDATORY_CONVENTIONS_TITLE } from "./rulebook.js";
+import { buildAgentWorkflowSpec } from "./workflow.js";
+import type { AgentWorkflowSpec, AgentRole } from "./workflow.js";
 import { scanRepo } from "../scanner/index.js";
 
 /**
@@ -174,6 +176,35 @@ function pickAreaSections(
   }));
 }
 
+function pickConventionSectionsForAgent(
+  rulebook: Awaited<ReturnType<typeof buildRulebook>>,
+  agent: AgentRole
+): Array<{ title: string; bullets: string[] }> {
+  const reviewTitles = new Set([
+    "Language and Framework Practices",
+    "Execution Guardrails",
+    "Build, Test, and Tooling",
+    "Implementation Playbook"
+  ]);
+  const securityTitles = new Set([
+    "Auth, Permissions, and Middleware",
+    "Execution Guardrails",
+    "Validation, Models, and Database"
+  ]);
+
+  const wanted = agent.id === "security-reviewer" ? securityTitles : reviewTitles;
+  let picked = rulebook.sections.filter((section) => wanted.has(section.title));
+
+  if (picked.length === 0) {
+    picked = rulebook.sections.slice(0, 4);
+  }
+
+  return picked.map((section) => ({
+    title: section.title,
+    bullets: section.bullets.slice(0, 10)
+  }));
+}
+
 function renderTemplate(source: string, context: Record<string, unknown>): string {
   const template = Handlebars.compile(source, { noEscape: true });
   return template(context).trimEnd() + "\n";
@@ -195,6 +226,7 @@ function toTemplateContext(
     areas: { name: string; applyTo: string }[];
     rulebook: Awaited<ReturnType<typeof buildRulebook>>;
     policy: Required<RenderPolicy>;
+    workflow: AgentWorkflowSpec;
   }
 ): Record<string, unknown> {
   return {
@@ -206,6 +238,7 @@ function toTemplateContext(
     areaInstructions: options.areas,
     rulebook: options.rulebook,
     policy: options.policy,
+    workflow: options.workflow,
     copilotStrict: options.policy.copilotProfile === "strict",
     claudeStrict: options.policy.claudeProfile === "strict",
     junieStrict: options.policy.junieProfile === "strict",
@@ -311,6 +344,7 @@ async function renderRulesForProfile(args: {
   if (!args.profile.build.commands.build) unknowns.push("Build command is not confidently detected.");
 
   const rulebook = await buildRulebook(args.profile, policy);
+  const workflow = buildAgentWorkflowSpec(args.profile);
   const mergedUnknowns = [...new Set([...unknowns, ...rulebook.unknowns])];
 
   const context = toTemplateContext(args.profile, {
@@ -318,7 +352,8 @@ async function renderRulesForProfile(args: {
     snippets: decision.snippets,
     areas: decision.areaInstructions,
     rulebook,
-    policy
+    policy,
+    workflow
   });
 
   const files: GeneratedFile[] = [];
@@ -335,6 +370,23 @@ async function renderRulesForProfile(args: {
       path: "CLAUDE.md",
       content: renderTemplate(pickTemplate(pack.templates, "claude.md.hbs"), context)
     });
+
+    // Generate Claude subagent files
+    for (const agent of workflow.agents) {
+      const templateName = `claude-agent-${agent.id}.md.hbs`;
+      const template = pack.templates[templateName];
+      if (template) {
+        const conventionSections = pickConventionSectionsForAgent(rulebook, agent);
+        files.push({
+          path: `.claude/agents/${agent.id}.md`,
+          content: renderTemplate(template, {
+            ...context,
+            agent,
+            conventionSections
+          })
+        });
+      }
+    }
   }
 
   if (effectiveTargets.copilot) {
@@ -379,6 +431,46 @@ async function renderRulesForProfile(args: {
       path: ".agent/rules/rulesmith.instructions.md",
       content: renderTemplate(pickTemplate(pack.templates, "antigravity-rules.md.hbs"), context)
     });
+  }
+
+  // Generate cross-platform skill files (.agents/skills/) for Codex, Gemini, Copilot
+  const needsCrossplatformSkills =
+    effectiveTargets.codex || effectiveTargets.gemini || effectiveTargets.copilot;
+  if (needsCrossplatformSkills) {
+    for (const agent of workflow.agents) {
+      const templateName = `skill-${agent.id}.md.hbs`;
+      const template = pack.templates[templateName];
+      if (template) {
+        const conventionSections = pickConventionSectionsForAgent(rulebook, agent);
+        files.push({
+          path: `.agents/skills/${agent.id}/SKILL.md`,
+          content: renderTemplate(template, {
+            ...context,
+            agent,
+            conventionSections
+          })
+        });
+      }
+    }
+  }
+
+  // Generate Junie-specific skill files (.junie/skills/)
+  if (effectiveTargets.junie) {
+    for (const agent of workflow.agents) {
+      const templateName = `skill-${agent.id}.md.hbs`;
+      const template = pack.templates[templateName];
+      if (template) {
+        const conventionSections = pickConventionSectionsForAgent(rulebook, agent);
+        files.push({
+          path: `.junie/skills/${agent.id}/SKILL.md`,
+          content: renderTemplate(template, {
+            ...context,
+            agent,
+            conventionSections
+          })
+        });
+      }
+    }
   }
 
   validateStrictMandatoryConventions(files, policy);

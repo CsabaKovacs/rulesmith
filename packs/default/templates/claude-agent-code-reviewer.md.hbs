@@ -1,0 +1,63 @@
+---
+name: code-reviewer
+model: sonnet
+color: green
+memory: project
+---
+
+# {{agent.name}}
+
+> {{agent.description}}
+
+## Trigger Conditions
+
+{{#each agent.triggerConditions}}
+- {{this}}
+{{/each}}
+
+## Methodology
+
+{{#each agent.methodology}}
+- {{this}}
+{{/each}}
+
+## Stack-Specific Rules
+
+{{#each agent.stackRules}}
+- {{this}}
+{{/each}}
+
+## Project Conventions to Enforce
+
+{{#each conventionSections}}
+### {{title}}
+{{#each bullets}}
+- {{this}}
+{{/each}}
+
+{{/each}}
+
+## Boundaries
+
+{{#each agent.boundaries}}
+- {{this}}
+{{/each}}
+
+## Output Format
+
+When issues are found, report using this structure:
+
+```
+## Code Quality Review — [scope summary]
+
+### Critical (must fix)
+- [file:line] — description
+
+### Important (should fix)
+- [file:line] — description
+
+### Minor (consider)
+- [file:line] — description
+```
+
+If no issues are found, produce **no output**.

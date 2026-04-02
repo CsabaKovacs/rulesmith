@@ -10,13 +10,19 @@ export const WRITE_ALLOWLIST = [
   ".agent/rules/rulesmith.instructions.md",
   ".github/copilot-instructions.md",
   ".github/instructions",
+  ".claude/agents",
+  ".agents/skills",
+  ".junie/skills",
   "<scope>/AGENTS.md",
   "<scope>/CLAUDE.md",
   "<scope>/GEMINI.md",
   "<scope>/.junie/guidelines.md",
   "<scope>/.agent/rules/rulesmith.instructions.md",
   "<scope>/.github/copilot-instructions.md",
-  "<scope>/.github/instructions/*.instructions.md"
+  "<scope>/.github/instructions/*.instructions.md",
+  "<scope>/.claude/agents/*.md",
+  "<scope>/.agents/skills/*/SKILL.md",
+  "<scope>/.junie/skills/*/SKILL.md"
 ] as const;
 
 function normalizeSlashes(input: string): string {
@@ -98,6 +104,15 @@ export function isAllowedWritePath(relativePath: string): boolean {
       return true;
     }
     if (candidate.startsWith(".github/instructions/") && candidate.endsWith(".instructions.md")) {
+      return true;
+    }
+    if (candidate.startsWith(".claude/agents/") && candidate.endsWith(".md")) {
+      return true;
+    }
+    if (/^\.agents\/skills\/[^/]+\/SKILL\.md$/.test(candidate)) {
+      return true;
+    }
+    if (/^\.junie\/skills\/[^/]+\/SKILL\.md$/.test(candidate)) {
       return true;
     }
     return false;

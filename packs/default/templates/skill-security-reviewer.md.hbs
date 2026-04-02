@@ -1,0 +1,52 @@
+---
+description: Run a security review on changed files when modifications touch request handling, authentication, authorization, database queries, file access, external APIs, or sensitive data.
+---
+
+# Security Review
+
+> {{agent.description}}
+
+## When to Activate
+
+{{#each agent.triggerConditions}}
+- {{this}}
+{{/each}}
+
+## Review Methodology
+
+Follow these steps in order:
+
+{{#each agent.methodology}}
+- {{this}}
+{{/each}}
+
+## Stack-Specific Security Rules
+
+{{#each agent.stackRules}}
+- {{this}}
+{{/each}}
+
+## Boundaries
+
+{{#each agent.boundaries}}
+- {{this}}
+{{/each}}
+
+## Output Format
+
+When issues are found, report using this structure:
+
+```
+## Security Review — [scope summary]
+
+### Critical (block merge)
+- [file:line] — vulnerability type — description — remediation
+
+### Important (fix before deploy)
+- [file:line] — vulnerability type — description — remediation
+
+### Minor (track)
+- [file:line] — vulnerability type — description
+```
+
+If no issues are found, produce **no output**.

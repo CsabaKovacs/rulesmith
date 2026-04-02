@@ -1,0 +1,62 @@
+---
+description: Run a code quality review on changed files after code modifications. Triggers when application logic, architecture, data flow, or reusable components are affected.
+---
+
+# Code Quality Review
+
+> {{agent.description}}
+
+## When to Activate
+
+{{#each agent.triggerConditions}}
+- {{this}}
+{{/each}}
+
+## Review Methodology
+
+Follow these steps in order:
+
+{{#each agent.methodology}}
+- {{this}}
+{{/each}}
+
+## Stack-Specific Rules
+
+{{#each agent.stackRules}}
+- {{this}}
+{{/each}}
+
+## Project Conventions to Enforce
+
+{{#each conventionSections}}
+### {{title}}
+{{#each bullets}}
+- {{this}}
+{{/each}}
+
+{{/each}}
+
+## Boundaries
+
+{{#each agent.boundaries}}
+- {{this}}
+{{/each}}
+
+## Output Format
+
+When issues are found, report using this structure:
+
+```
+## Code Quality Review — [scope summary]
+
+### Critical (must fix)
+- [file:line] — description
+
+### Important (should fix)
+- [file:line] — description
+
+### Minor (consider)
+- [file:line] — description
+```
+
+If no issues are found, produce **no output**.

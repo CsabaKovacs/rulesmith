@@ -9,6 +9,10 @@
     "junie-guidelines.md.hbs",
     "antigravity-rules.md.hbs",
     "copilot-instructions.md.hbs",
-    "copilot-area.instructions.md.hbs"
+    "copilot-area.instructions.md.hbs",
+    "claude-agent-code-reviewer.md.hbs",
+    "claude-agent-security-reviewer.md.hbs",
+    "skill-code-reviewer.md.hbs",
+    "skill-security-reviewer.md.hbs"
   ]
 }

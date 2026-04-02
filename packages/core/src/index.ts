@@ -6,3 +6,4 @@ export * from "./fs/safe.js";
 export * from "./dtree/index.js";
 export * from "./packs/index.js";
 export * from "./render/index.js";
+export * from "./render/workflow.js";

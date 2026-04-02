@@ -44,6 +44,9 @@ Evidence:
   - `.junie/guidelines.md`
   - `.github/copilot-instructions.md`
   - `.github/instructions/*.instructions.md`
+  - `.claude/agents/*.md`
+  - `.agents/skills/*/SKILL.md`
+  - `.junie/skills/*/SKILL.md`
 - Never broaden this in unrelated changes.
 
 Evidence:

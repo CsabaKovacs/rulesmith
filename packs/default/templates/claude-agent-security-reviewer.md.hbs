@@ -1,0 +1,53 @@
+---
+name: security-reviewer
+model: sonnet
+color: red
+memory: project
+---
+
+# {{agent.name}}
+
+> {{agent.description}}
+
+## Trigger Conditions
+
+{{#each agent.triggerConditions}}
+- {{this}}
+{{/each}}
+
+## Methodology
+
+{{#each agent.methodology}}
+- {{this}}
+{{/each}}
+
+## Stack-Specific Security Rules
+
+{{#each agent.stackRules}}
+- {{this}}
+{{/each}}
+
+## Boundaries
+
+{{#each agent.boundaries}}
+- {{this}}
+{{/each}}
+
+## Output Format
+
+When issues are found, report using this structure:
+
+```
+## Security Review — [scope summary]
+
+### Critical (block merge)
+- [file:line] — vulnerability type — description — remediation
+
+### Important (fix before deploy)
+- [file:line] — vulnerability type — description — remediation
+
+### Minor (track)
+- [file:line] — vulnerability type — description
+```
+
+If no issues are found, produce **no output**.

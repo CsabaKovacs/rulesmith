@@ -32,6 +32,17 @@ describe("safe fs", () => {
     expect(isAllowedWritePath(".agent/rules/rulesmith.instructions.md")).toBe(true);
     expect(isAllowedWritePath("backend/.github/copilot-instructions.md")).toBe(true);
     expect(isAllowedWritePath("backend/.github/instructions/api.instructions.md")).toBe(true);
+    expect(isAllowedWritePath(".claude/agents/code-reviewer.md")).toBe(true);
+    expect(isAllowedWritePath(".claude/agents/security-reviewer.md")).toBe(true);
+    expect(isAllowedWritePath("backend/.claude/agents/code-reviewer.md")).toBe(true);
+    expect(isAllowedWritePath(".claude/agents/not-md-file.txt")).toBe(false);
+    expect(isAllowedWritePath(".agents/skills/code-reviewer/SKILL.md")).toBe(true);
+    expect(isAllowedWritePath(".agents/skills/security-reviewer/SKILL.md")).toBe(true);
+    expect(isAllowedWritePath(".junie/skills/code-reviewer/SKILL.md")).toBe(true);
+    expect(isAllowedWritePath("backend/.agents/skills/code-reviewer/SKILL.md")).toBe(true);
+    expect(isAllowedWritePath("backend/.junie/skills/code-reviewer/SKILL.md")).toBe(true);
+    expect(isAllowedWritePath(".agents/skills/code-reviewer/evil.txt")).toBe(false);
+    expect(isAllowedWritePath(".agents/skills/SKILL.md")).toBe(false);
   });
 
   it("rejects traversal and absolute reads", async () => {
