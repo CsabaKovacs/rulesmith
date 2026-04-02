@@ -1,138 +1,172 @@
-# rulesmith Repository Conventions (AI-Reviewed)
+# Project Conventions (Evidence-Backed)
 
-This file captures enforceable conventions for this repository based on direct file evidence.
+## Execution Contract
+- **BINDING**: This rulebook is mandatory. Every rule, convention, and workflow defined here MUST be followed without exception. Skipping, ignoring, or partially applying rules is a violation. If a rule conflicts with your default behavior, the rulebook takes precedence.
+- Use evidence-first behavior: every non-trivial claim or new convention must stay tied to concrete repository evidence.
+- Enforce repository conventions first; do not replace a strong local pattern with generic best-practice text.
+- Keep changes reviewable and scoped: prefer the smallest behavior-safe diff that fits the touched boundary.
+- strictness: `very-strict`
+- standards: `project-plus-standard`
 
 ## Project Snapshot
-- Repository type: pnpm monorepo (`packages/*`).
-- Primary implementation stack: TypeScript + Node.js ESM in `packages/core`, `packages/cli`, `packages/mcp`.
-- Additional languages (PHP/Dart/Python/Go) are present mainly in `examples/fixtures/*` for scanner test coverage; do not treat them as core runtime stack conventions.
-- Build/test/lint commands are workspace-level scripts from root `package.json`.
+- **What**: rulesmith — local-first CLI + MCP server for evidence-backed AI coding instruction generation. (evidence: package.json, README.md)
+- **Stack**: TypeScript monorepo managed by pnpm with 3 workspace packages. (evidence: pnpm-workspace.yaml, tsconfig.base.json)
+- **Packages**:
+  - `packages/core` — scanner, evidence bundler, rulebook builder, AST analysis, template renderer, decision tree engine, pack system, safe FS utilities. (evidence: packages/core/src/index.ts)
+  - `packages/cli` — Commander-based CLI that wraps core functions. (evidence: packages/cli/src/index.ts)
+  - `packages/mcp` — MCP server (Model Context Protocol) that wraps core functions via `@modelcontextprotocol/sdk`. (evidence: packages/mcp/src/server.ts)
+- **Key directories**:
+  - `packs/default/` — Handlebars templates + decision tree YAML + orchestrator prompts for rule generation. (evidence: packs/default/pack.json)
+  - `examples/fixtures/` — Test fixture repositories for various frameworks. **These are test data, NOT production code.** (evidence: examples/fixtures/)
+  - `docs/` — Documentation and integration guides. (evidence: docs/)
+- Build command coverage: install=yes, build=yes, test=yes, lint=yes. (evidence: package.json)
 
-Evidence:
-- `pnpm-workspace.yaml`
-- `package.json`
-- `packages/core/package.json`
-- `packages/cli/package.json`
-- `packages/mcp/package.json`
-- `examples/fixtures/*`
-
-## Setup Commands
+## Setup Commands (with evidence)
 - install: `pnpm install`
 - build: `pnpm -r build`
 - test: `pnpm -r test`
 - lint: `pnpm -r lint`
-- format: `UNKNOWN` (no root format script)
-- dev: `UNKNOWN` (no root dev script)
+- format: `UNKNOWN`
+- dev: `UNKNOWN`
 
-Evidence:
-- `package.json`
+Evidence: package.json, pnpm-workspace.yaml
 
-## Repository Layout
-- `packages/core/src`: source of truth for profile/schema, scanner/sampling, safe FS, packs/decision tree, renderer.
-- `packages/cli/src`: `rulesmith` CLI commands (`start`, `scan`, `sample`, `bundle`, `compose`, `render`, `diff`, `apply`, `doctor`).
-- `packages/mcp/src/server.ts`: MCP stdio server tool registration and prompt/resource exposure.
-- `packs/default`: templates, orchestrator prompts, decision tree.
-- `examples/fixtures`: synthetic repos used for scanner/render testing.
-- `docs/integrations`: host setup docs.
+## Detailed Conventions
 
-## Source vs Dist Policy
-- Edit `src` files, not `dist`, unless there is a deliberate packaging exception.
-- Any source change that affects emitted JS/types requires rebuilding so `dist` stays in sync before release.
-- Keep TypeScript `rootDir=src` and output `outDir=dist` conventions per package.
+### TypeScript Configuration
+- Target: ES2022, module: NodeNext, moduleResolution: NodeNext. (evidence: tsconfig.base.json)
+- Strict mode with `noUncheckedIndexedAccess: true`. (evidence: tsconfig.base.json)
+- All packages extend `tsconfig.base.json`. (evidence: tsconfig.base.json)
+- Use `.js` extensions in import paths (NodeNext resolution). (evidence: packages/core/src/index.ts)
 
-Evidence:
-- `packages/core/tsconfig.json`
-- `packages/cli/tsconfig.json`
-- `packages/mcp/tsconfig.json`
+### Module and Export Patterns
+- Barrel `src/index.ts` re-exports public API per package. (evidence: packages/core/src/index.ts)
+- Module-level functions — no class-based service pattern. (evidence: packages/core/src/scanner/index.ts, packages/core/src/render/index.ts)
+- Types via `type` aliases and Zod-inferred types. (evidence: packages/core/src/profile/schema.ts, packages/core/src/render/workflow.ts)
+- Inter-package imports use the package name (`@rulesmith/core`). (evidence: packages/mcp/src/server.ts, packages/cli/src/index.ts)
 
-## Core Behavioral Rules
-- `rulesmith` itself must not call an embedded LLM/model; it is an evidence + rendering tool.
-- MCP server logs must go to stderr; do not print operational logs to stdout.
-- Preserve deterministic evidence behavior in scanner and bundle flow.
-- Keep `build_evidence_bundle` defaults paths-only (`includeContent=false`) and cleanup behavior explicit.
+### Schema and Validation
+- Zod for schema definitions and runtime validation at boundaries. (evidence: packages/core/src/profile/schema.ts)
+- MCP server uses Zod schemas for tool parameter validation. (evidence: packages/mcp/src/server.ts)
+- Define Zod schema first, infer TypeScript type with `z.infer<>`. (evidence: packages/core/src/profile/schema.ts)
 
-Evidence:
-- `README.md`
-- `packages/mcp/src/server.ts`
-- `packages/core/src/scanner/sampling.ts`
+### AST Analysis Pipeline
+- Multi-parser: TypeScript compiler API, `@lezer/*` for Java/PHP/Python/Rust, `bash-parser` for shell, `node-sql-parser` for SQL. (evidence: packages/core/src/render/ast.ts)
+- AST facts collected into typed structures, converted to `AstConventionCandidate`. (evidence: packages/core/src/render/ast.ts)
 
-## Safe FS and Write Guardrails
-- Repository boundary protections (no traversal, no absolute escape, no symlink escape) are mandatory.
-- Allowed generated write targets are restricted to:
-  - `AGENTS.md`
-  - `CLAUDE.md`
-  - `.junie/guidelines.md`
-  - `.github/copilot-instructions.md`
-  - `.github/instructions/*.instructions.md`
-- Safe mode must not overwrite changed existing content.
+### File System Safety
+- All file I/O through `packages/core/src/fs/safe.ts` helpers. (evidence: packages/core/src/fs/safe.ts)
+- Path traversal prevention: `resolveRepoRelative()` blocks `../` and absolute paths. (evidence: packages/core/src/fs/safe.ts)
+- `assertPathInsideRepo()` validates resolved paths stay within repo root. (evidence: packages/core/src/fs/safe.ts)
+- Write allowlist: `WRITE_ALLOWLIST` restricts which files can be written. (evidence: packages/core/src/fs/safe.ts)
+- `fast-glob` for file listing, `.git/**` always ignored. (evidence: packages/core/src/fs/safe.ts)
 
-Evidence:
-- `packages/core/src/fs/safe.ts`
-- `packages/core/test/fs.safe.test.ts`
+### Rendering Pipeline
+- Handlebars templates in `packs/default/templates/` generate instruction files. (evidence: packs/default/templates/)
+- `buildRulebook()` produces structured rulebook from `ProjectProfile` + policy. (evidence: packages/core/src/render/rulebook.ts)
+- `buildAgentWorkflowSpec()` generates agent roles and workflow steps. (evidence: packages/core/src/render/workflow.ts)
+- In-memory artifact store (Map, 30-min TTL, max 100) between render and apply. (evidence: packages/core/src/render/index.ts)
+- Decision tree (YAML) for conditional template inclusion. (evidence: packages/core/src/dtree/index.ts)
 
-## MCP Tool Contract
-- Maintain tool surface compatibility unless a breaking change is intentional and documented.
-- Current tool set includes scan/list/search/read/sample/bundle/render/diff/apply and pack helpers.
-- Optional fields in tool schemas should remain backward compatible where possible.
+### Pack System
+- Packs under `packs/`, resolved by walking up from cwd or `RULESMITH_HOME`. (evidence: packages/core/src/packs/index.ts)
+- Each pack: `pack.json`, `templates/`, `decision-tree.yaml`, optional `orchestrator/`. (evidence: packages/core/src/packs/index.ts)
+- Template overrides supported via `overrides` directory. (evidence: packages/core/src/packs/index.ts)
 
-Evidence:
-- `packages/mcp/src/server.ts`
-- `README.md`
+### Testing
+- Vitest test runner. Tests in `packages/core/test/`. (evidence: packages/core/test/)
+- File naming: `<module>.test.ts`. (evidence: packages/core/test/dtree.test.ts)
+- Snapshot tests for render output. (evidence: packages/core/test/__snapshots__/)
+- Fixtures in `examples/fixtures/` for framework-specific testing. (evidence: examples/fixtures/)
 
-## Rendering and Targets
-- Supported targets currently: `codex`, `copilot`, `claude`, `junie`.
-- Preserve target-specific outputs and path contracts.
-- If changing templates or target behavior, update tests/snapshots accordingly.
+### Error Handling
+- Standard `Error` with descriptive messages. No custom error classes. (evidence: packages/core/src/fs/safe.ts)
+- `.catch(() => undefined)` for optional existence checks. (evidence: packages/core/src/scanner/scopes.ts)
 
-Evidence:
-- `packages/core/src/render/index.ts`
-- `packs/default/pack.json`
-- `packages/core/test/render.test.ts`
-- `packages/core/test/__snapshots__/render.test.ts.snap`
+### Code Style
+- Async/await throughout. (evidence: all source files)
+- `Record<string, unknown>` for untyped JSON. (evidence: packages/core/src/scanner/index.ts)
+- Private helpers are unexported module-scoped functions. (evidence: packages/core/src/render/rulebook.ts)
+- Constants: UPPER_SNAKE_CASE. Functions: camelCase. Types: PascalCase. (evidence: all source files)
 
-## Testing and Quality Bar
-- Minimum required checks before merge:
-  - `pnpm -r test`
-  - `pnpm -r build`
-  - `pnpm -r lint`
-- For behavioral changes in `core`/`render`/`fs`/`scanner`, add or update vitest coverage in `packages/core/test`.
-- CLI and MCP currently use `--passWithNoTests`; if adding tests there, enforce them consistently.
+### Build, Test, and Tooling
+- Install: `pnpm install`. Build: `pnpm -r build`. Test: `pnpm -r test`. Lint: `pnpm -r lint`. (evidence: package.json)
+- `dist/` directories are compiled output — do not edit. (evidence: packages/core/dist/)
 
-Evidence:
-- `package.json`
-- `packages/core/package.json`
-- `packages/cli/package.json`
-- `packages/mcp/package.json`
+### Execution Guardrails
+- Forbidden paths: `.git`, `node_modules`, `dist/`, `vendor/`. (evidence: .gitignore)
+- Do not edit `examples/fixtures/` unless modifying test data.
+- Do not edit generated or dependency directories.
 
-## Documentation and Policy Maintenance
-- Update docs in the same change when behavior, flags, outputs, or integrations change.
-- Keep these policy docs coherent: `README.md`, `SECURITY.md`, `CONTRIBUTING.md`, `CLA.md`, `GOVERNANCE.md`, `TRADEMARKS.md`.
-- Keep integration docs aligned with actual CLI flags and MCP behavior.
+### Implementation Playbook
+- Match local naming/layout conventions; do not introduce a second style within one module.
+- Keep diffs scoped to smallest boundary.
+- New scanner/renderer features: add to core → export from barrel → wrap in CLI and MCP.
+- New templates go in `packs/default/templates/`.
+- New schemas go in `packages/core/src/profile/schema.ts` or near usage.
+- Apply DRY only when repetition is real and stable.
 
-Evidence:
-- `README.md`
-- `SECURITY.md`
-- `docs/integrations/*`
+### Mandatory System-Conventions (Strict Enforcement)
+- Preserve system-found architecture, naming, and dependency patterns.
+- Prefer the pattern already in use in the touched boundary.
+- New frameworks/linters/formatters forbidden without explicit approval.
+- Record UNKNOWN/TODO when confidence is insufficient.
+- TypeScript: strict typing, NodeNext modules, `.js` import extensions, Zod schemas. (evidence: tsconfig.base.json)
+- File safety: all I/O through `safe.ts`, `WRITE_ALLOWLIST` for writes. (evidence: packages/core/src/fs/safe.ts)
 
-## Security and Data Exposure Rules
-- Never weaken safe path enforcement or allowlist boundaries without explicit security review.
-- Treat MCP-host data flow as sensitive: avoid exposing secrets or proprietary code unintentionally.
-- Keep disclaimers and security policy language aligned with actual risk model.
+### Documentation Maintenance
+- Update docs with behavior/contract changes. (evidence: README.md, CONTRIBUTING.md)
+- Require TSDoc/JSDoc for exported APIs.
 
-Evidence:
-- `packages/core/src/fs/safe.ts`
-- `SECURITY.md`
-- `README.md`
-- `docs/integrations/README.md`
+### Strict Quality Gates (DO / DON'T)
+- DO keep claims tied to evidence files.
+- DO keep changes scoped and behavior-safe.
+- DON'T introduce speculative abstractions.
+- DON'T mix functional changes with style-only rewrites.
 
-## Implementation Do/Don't
-- DO keep changes scoped and evidence-backed.
-- DO prefer compatibility-preserving edits in MCP/CLI schemas.
-- DO update tests/snapshots/docs with behavior changes.
-- DON'T introduce speculative abstractions without repeated evidence.
-- DON'T rely on fixture repos as production architecture guidance.
-- DON'T bypass safe FS protections for convenience.
+### Testing Minimum Bar
+- Every behavior change needs a test or verification note. (evidence: packages/core/test/)
+- Contract changes need backward-compatibility checks.
+- New features need fixture-based tests. (evidence: examples/fixtures/)
+
+### Security and Performance Checklist
+- File paths through `resolveRepoRelative` + `assertPathInsideRepo`. (evidence: packages/core/src/fs/safe.ts)
+- Writes restricted to `WRITE_ALLOWLIST`. (evidence: packages/core/src/fs/safe.ts)
+- MCP inputs validated via Zod. (evidence: packages/mcp/src/server.ts)
+- Use `includeContent=false` when content not needed. (evidence: packages/core/src/scanner/sampling.ts)
+- Cap file listing with `max`. (evidence: packages/core/src/fs/safe.ts)
+
+### Dependency and Change Safety Policy
+- Dependency changes need rationale. (evidence: package.json)
+- Breaking changes need migration path and rollback notes.
+- CLA required for external contributions. (evidence: CONTRIBUTING.md, CLA.md)
+
+### Definition of Done
+- Code aligns with standards and local conventions.
+- Tests updated for touched behavior.
+- Docs updated when contracts changed.
+- UNKNOWN/TODO items explicit and actionable.
+
+### Post-Change Review Workflow (MANDATORY)
+- **NEVER SKIP**: After ANY code modification (file edits or new files that change application logic), you MUST run the Post-Change Review Workflow before responding to the user. Failure to run reviews after code changes is a rulebook violation. Skip ONLY for documentation-only, config-only, or trivial text changes.
+- Code Quality Review: run a code quality review subagent for changed files when the change affects application logic, architecture, data flow, or reusable components. Check for: adherence to this rulebook's conventions, readability, naming consistency, pattern conformance, unnecessary complexity or duplication, and DRY / no-premature-abstraction principles.
+- Security Review: run a security review subagent only when the change touches: request/input handling, authentication or authorization, database queries or persistence, file upload or file access, HTML rendering or user-generated content, external API calls or webhooks, or secrets/tokens/sensitive data. Check for: injection risks, XSS, CSRF, broken access control, missing input validation, sensitive data exposure, and unsafe defaults.
+- Review output rules: only report findings when issues are found — if both reviews pass clean, produce no review output. Separate findings into critical, important, and minor severity levels.
+- Do not automatically apply review-agent suggestions blindly. Apply fixes only if clearly within scope and low-risk. For high-risk or scope-expanding fixes, report them to the user instead of changing code.
+- Ignore purely stylistic suggestions unless they meaningfully improve maintainability. Both review subagents should run in parallel to minimize latency.
+
+## Guardrails
+Forbidden paths:
+- .git
+- node_modules
+- dist/
+- vendor/
+
+Notes:
+- Do not edit generated or dependency directories.
+- `examples/fixtures/` is test data — do not confuse with production code.
 
 ## UNKNOWN/TODO
-- Add an explicit root-level `format` command if formatting policy should be enforced uniformly.
-- Decide whether `packages/cli` and `packages/mcp` should move from `--passWithNoTests` to required tests.
+- No CI/CD pipeline detected — workflow and deployment conventions are unknown.
+- No format command configured — formatting conventions are unresolved.
+- No ESLint/Prettier config files detected at repo root — linting tool configuration is unclear.
