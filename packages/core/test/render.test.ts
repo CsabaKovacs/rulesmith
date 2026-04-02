@@ -50,6 +50,18 @@ describe("renderer", () => {
     expect(securityReviewer?.content).toContain("name: security-reviewer");
     expect(securityReviewer?.content).toContain("Security Reviewer");
     expect(securityReviewer?.content).toContain("Stack-Specific Security Rules");
+
+    // Verify code-simplifier and test-guard subagent files
+    const codeSimplifier = files.find((f) => f.path === ".claude/agents/code-simplifier.md");
+    const testGuard = files.find((f) => f.path === ".claude/agents/test-guard.md");
+    expect(codeSimplifier).toBeDefined();
+    expect(testGuard).toBeDefined();
+    expect(codeSimplifier?.content).toContain("name: code-simplifier");
+    expect(codeSimplifier?.content).toContain("Code Simplifier");
+    expect(codeSimplifier?.content).toContain("Stack-Specific Simplification Rules");
+    expect(testGuard?.content).toContain("name: test-guard");
+    expect(testGuard?.content).toContain("Test Guard");
+    expect(testGuard?.content).toContain("Stack-Specific Test Rules");
   });
 
   it("does not generate subagent files when claude target is disabled", async () => {
@@ -72,12 +84,17 @@ describe("renderer", () => {
 
     const codeSkill = files.find((f) => f.path === ".agents/skills/code-reviewer/SKILL.md");
     const securitySkill = files.find((f) => f.path === ".agents/skills/security-reviewer/SKILL.md");
+    const simplifierSkill = files.find((f) => f.path === ".agents/skills/code-simplifier/SKILL.md");
+    const testGuardSkill = files.find((f) => f.path === ".agents/skills/test-guard/SKILL.md");
     expect(codeSkill).toBeDefined();
     expect(securitySkill).toBeDefined();
+    expect(simplifierSkill).toBeDefined();
+    expect(testGuardSkill).toBeDefined();
     expect(codeSkill?.content).toContain("Code Quality Review");
     expect(codeSkill?.content).toContain("description:");
     expect(securitySkill?.content).toContain("Security Review");
-    expect(securitySkill?.content).toContain("description:");
+    expect(simplifierSkill?.content).toContain("Code Simplifier");
+    expect(testGuardSkill?.content).toContain("Test Guard");
   });
 
   it("generates junie-specific skill files for junie target", async () => {
@@ -272,7 +289,7 @@ describe("renderer", () => {
     expect(agents?.content).toContain("Repository-specific convention (flow): Completion flows already reset navigation back to the shell or root after setup/auth success");
     expect(agents?.content).toContain("Repository-specific convention (errors): Typed exception handling is already explicit in code");
     expect(agents?.content).toContain("Repository-specific convention (delivery): Repository docs or integration notes already coexist with contract-bearing code");
-    expect(agents?.content).toContain("Repository-specific convention (routing): Toolchain-confirmed Dart navigation and app-shell ownership is already explicit in validated Flutter source files");
+    expect(agents?.content).toContain("Repository-specific convention (routing): Flutter navigation and app-shell ownership is already explicit in app/router code");
     expect(agents?.content).toContain("Repository-specific convention (database): Parser-confirmed SQL schema/query boundaries already exist through explicit statements");
     expect(agents?.content).toContain("Repository-specific convention (security): Parser-confirmed shell safety guards are already present");
     expect(agents?.content).toContain("Repository-specific convention (ui): Flutter route-level screens and reusable widgets already live in distinct folders");

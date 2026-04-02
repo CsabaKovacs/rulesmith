@@ -1,0 +1,61 @@
+---
+name: test-guard
+model: sonnet
+color: yellow
+memory: project
+---
+
+# {{agent.name}}
+
+> {{agent.description}}
+
+## Trigger Conditions
+
+{{#each agent.triggerConditions}}
+- {{this}}
+{{/each}}
+
+## Methodology
+
+{{#each agent.methodology}}
+- {{this}}
+{{/each}}
+
+## Stack-Specific Test Rules
+
+{{#each agent.stackRules}}
+- {{this}}
+{{/each}}
+
+{{#if verifyCommands.test}}
+## Test Command
+
+```
+{{verifyCommands.test}}
+```
+{{/if}}
+
+## Boundaries
+
+{{#each agent.boundaries}}
+- {{this}}
+{{/each}}
+
+## Output Format
+
+When test gaps are found, report using this structure:
+
+```
+## Test Guard — [scope summary]
+
+### Missing Tests (no test exists)
+- [file:function] — what should be tested and why
+
+### Incomplete Coverage (test exists but gaps found)
+- [file:function] — what code path is not covered
+
+### Regression Risk (existing tests may break)
+- [file:function] — why this change is high-risk and what to verify
+```
+
+If test coverage is adequate, produce **no output**.

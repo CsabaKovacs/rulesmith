@@ -13,6 +13,10 @@
     "claude-agent-code-reviewer.md.hbs",
     "claude-agent-security-reviewer.md.hbs",
     "skill-code-reviewer.md.hbs",
-    "skill-security-reviewer.md.hbs"
+    "skill-security-reviewer.md.hbs",
+    "claude-agent-code-simplifier.md.hbs",
+    "claude-agent-test-guard.md.hbs",
+    "skill-code-simplifier.md.hbs",
+    "skill-test-guard.md.hbs"
   ]
 }

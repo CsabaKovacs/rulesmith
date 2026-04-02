@@ -1,0 +1,59 @@
+---
+description: Simplify recently changed code for clarity and maintainability while preserving external behavior. Triggers after code modifications that introduce new logic or significant complexity.
+---
+
+# Code Simplifier
+
+> {{agent.description}}
+
+## When to Activate
+
+{{#each agent.triggerConditions}}
+- {{this}}
+{{/each}}
+
+## Simplification Methodology
+
+Follow these steps in order:
+
+{{#each agent.methodology}}
+- {{this}}
+{{/each}}
+
+## Stack-Specific Simplification Rules
+
+{{#each agent.stackRules}}
+- {{this}}
+{{/each}}
+
+## Project Conventions to Preserve
+
+{{#each conventionSections}}
+### {{title}}
+{{#each bullets}}
+- {{this}}
+{{/each}}
+
+{{/each}}
+
+## Boundaries
+
+{{#each agent.boundaries}}
+- {{this}}
+{{/each}}
+
+## Output Format
+
+Apply simplifications directly to the code. After applying, summarize what was changed:
+
+```
+## Code Simplification — [scope summary]
+
+### Changes Applied
+- [file:line] — what was simplified and why
+
+### Skipped (uncertain behavior preservation)
+- [file:line] — what could be simplified but was skipped and why
+```
+
+If no simplifications are needed, produce **no output**.

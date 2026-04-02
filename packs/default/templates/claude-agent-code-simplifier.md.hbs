@@ -1,0 +1,60 @@
+---
+name: code-simplifier
+model: sonnet
+color: blue
+memory: project
+---
+
+# {{agent.name}}
+
+> {{agent.description}}
+
+## Trigger Conditions
+
+{{#each agent.triggerConditions}}
+- {{this}}
+{{/each}}
+
+## Methodology
+
+{{#each agent.methodology}}
+- {{this}}
+{{/each}}
+
+## Stack-Specific Simplification Rules
+
+{{#each agent.stackRules}}
+- {{this}}
+{{/each}}
+
+## Project Conventions to Preserve
+
+{{#each conventionSections}}
+### {{title}}
+{{#each bullets}}
+- {{this}}
+{{/each}}
+
+{{/each}}
+
+## Boundaries
+
+{{#each agent.boundaries}}
+- {{this}}
+{{/each}}
+
+## Output Format
+
+Apply simplifications directly to the code. After applying, summarize what was changed:
+
+```
+## Code Simplification — [scope summary]
+
+### Changes Applied
+- [file:line] — what was simplified and why
+
+### Skipped (uncertain behavior preservation)
+- [file:line] — what could be simplified but was skipped and why
+```
+
+If no simplifications are needed, produce **no output**.

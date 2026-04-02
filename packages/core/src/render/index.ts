@@ -180,19 +180,31 @@ function pickConventionSectionsForAgent(
   rulebook: Awaited<ReturnType<typeof buildRulebook>>,
   agent: AgentRole
 ): Array<{ title: string; bullets: string[] }> {
-  const reviewTitles = new Set([
-    "Language and Framework Practices",
-    "Execution Guardrails",
-    "Build, Test, and Tooling",
-    "Implementation Playbook"
-  ]);
-  const securityTitles = new Set([
-    "Auth, Permissions, and Middleware",
-    "Execution Guardrails",
-    "Validation, Models, and Database"
-  ]);
+  const titlesByAgent: Record<string, Set<string>> = {
+    "code-reviewer": new Set([
+      "Language and Framework Practices",
+      "Execution Guardrails",
+      "Build, Test, and Tooling",
+      "Implementation Playbook"
+    ]),
+    "security-reviewer": new Set([
+      "Auth, Permissions, and Middleware",
+      "Execution Guardrails",
+      "Validation, Models, and Database"
+    ]),
+    "code-simplifier": new Set([
+      "Language and Framework Practices",
+      "Implementation Playbook",
+      "Code Style"
+    ]),
+    "test-guard": new Set([
+      "Build, Test, and Tooling",
+      "Testing",
+      "Testing Minimum Bar"
+    ])
+  };
 
-  const wanted = agent.id === "security-reviewer" ? securityTitles : reviewTitles;
+  const wanted = titlesByAgent[agent.id] ?? titlesByAgent["code-reviewer"]!;
   let picked = rulebook.sections.filter((section) => wanted.has(section.title));
 
   if (picked.length === 0) {
@@ -382,7 +394,8 @@ async function renderRulesForProfile(args: {
           content: renderTemplate(template, {
             ...context,
             agent,
-            conventionSections
+            conventionSections,
+            verifyCommands: workflow.verifyCommands
           })
         });
       }
@@ -447,7 +460,8 @@ async function renderRulesForProfile(args: {
           content: renderTemplate(template, {
             ...context,
             agent,
-            conventionSections
+            conventionSections,
+            verifyCommands: workflow.verifyCommands
           })
         });
       }
@@ -466,7 +480,8 @@ async function renderRulesForProfile(args: {
           content: renderTemplate(template, {
             ...context,
             agent,
-            conventionSections
+            conventionSections,
+            verifyCommands: workflow.verifyCommands
           })
         });
       }
