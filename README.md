@@ -180,11 +180,11 @@ What to do:
 
 7) Validate outputs in target repo for selected targets only
 Use this mapping:
-- codex -> AGENTS.md + .agents/skills/code-reviewer/SKILL.md + .agents/skills/security-reviewer/SKILL.md
-- claude -> CLAUDE.md + .claude/agents/code-reviewer.md + .claude/agents/security-reviewer.md
-- gemini -> GEMINI.md + .agents/skills/code-reviewer/SKILL.md + .agents/skills/security-reviewer/SKILL.md
-- copilot -> .github/copilot-instructions.md (and optional .github/instructions/*.instructions.md) + .agents/skills/code-reviewer/SKILL.md + .agents/skills/security-reviewer/SKILL.md
-- junie -> .junie/guidelines.md + .junie/skills/code-reviewer/SKILL.md + .junie/skills/security-reviewer/SKILL.md
+- codex -> AGENTS.md + .agents/skills/{code-reviewer,security-reviewer,code-simplifier,test-guard}/SKILL.md
+- claude -> CLAUDE.md + .claude/agents/{code-reviewer,security-reviewer,code-simplifier,test-guard}.md
+- gemini -> GEMINI.md + .agents/skills/{code-reviewer,security-reviewer,code-simplifier,test-guard}/SKILL.md
+- copilot -> .github/copilot-instructions.md (and optional .github/instructions/*.instructions.md) + .agents/skills/{code-reviewer,security-reviewer,code-simplifier,test-guard}/SKILL.md
+- junie -> .junie/guidelines.md + .junie/skills/{code-reviewer,security-reviewer,code-simplifier,test-guard}/SKILL.md
 - antigravity -> .agent/rules/rulesmith.instructions.md
 
 8) Final report (required)
@@ -269,11 +269,11 @@ What to do:
    - keep DRY/no-premature-abstraction and file cohesion rules.
 10) Show diff for the specialization pass, then apply in safe mode if valid.
 11) Validate outputs in target repo for selected targets only:
-- codex -> AGENTS.md + .agents/skills/code-reviewer/SKILL.md + .agents/skills/security-reviewer/SKILL.md
-- claude -> CLAUDE.md + .claude/agents/code-reviewer.md + .claude/agents/security-reviewer.md
-- gemini -> GEMINI.md + .agents/skills/code-reviewer/SKILL.md + .agents/skills/security-reviewer/SKILL.md
-- copilot -> .github/copilot-instructions.md (and optional .github/instructions/*.instructions.md) + .agents/skills/code-reviewer/SKILL.md + .agents/skills/security-reviewer/SKILL.md
-- junie -> .junie/guidelines.md + .junie/skills/code-reviewer/SKILL.md + .junie/skills/security-reviewer/SKILL.md
+- codex -> AGENTS.md + .agents/skills/{code-reviewer,security-reviewer,code-simplifier,test-guard}/SKILL.md
+- claude -> CLAUDE.md + .claude/agents/{code-reviewer,security-reviewer,code-simplifier,test-guard}.md
+- gemini -> GEMINI.md + .agents/skills/{code-reviewer,security-reviewer,code-simplifier,test-guard}/SKILL.md
+- copilot -> .github/copilot-instructions.md (and optional .github/instructions/*.instructions.md) + .agents/skills/{code-reviewer,security-reviewer,code-simplifier,test-guard}/SKILL.md
+- junie -> .junie/guidelines.md + .junie/skills/{code-reviewer,security-reviewer,code-simplifier,test-guard}/SKILL.md
 - antigravity -> .agent/rules/rulesmith.instructions.md
 12) Return a short final report with:
 - rulesmith install path
@@ -311,11 +311,15 @@ The specialization pass should also preserve high-signal repository specifics su
 
 ## Post-Change Review Workflow
 
-Generated rule files include a **Post-Change Review Workflow** section that instructs the host AI to run automated reviews after completing code changes. This provides built-in quality and security checks for every generated rulebook.
+Generated rule files include a **Post-Change Review Workflow** section that instructs the host AI to run automated reviews and refinement after completing code changes. This provides built-in quality, security, simplification, and test coverage checks for every generated rulebook.
 
-The workflow triggers two review agents after code modifications:
-- **Code Quality Review** — checks adherence to rule file conventions, readability, complexity, and duplication (runs only when application logic, architecture, or reusable components are affected)
-- **Security Review** — checks for OWASP Top 10 vulnerabilities, input validation, auth issues, and sensitive data exposure (runs only when security-sensitive areas are touched: input handling, auth, database, file access, HTML rendering, external APIs)
+The workflow triggers four specialized agents after code modifications:
+- **Code Quality Review** — checks adherence to rule file conventions, readability, complexity, and duplication
+- **Security Review** — checks for OWASP Top 10 vulnerabilities, input validation, auth issues, and sensitive data exposure (only when security-sensitive areas are touched)
+- **Code Simplifier** — behavior-preserving cleanup of recently changed code: reduces verbosity, consolidates patterns, improves clarity
+- **Test Guard** — evaluates test coverage for changed code, identifies missing tests, and flags regression risks
+
+The workflow order is optimized: lint → review → security → fix critical → simplify → test → test-guard → report. Reviews evaluate the developer's original code, the simplifier cleans it, and tests validate the final state.
 
 ### Capability-adaptive generation
 
@@ -331,11 +335,12 @@ The review agents are generated in the best available format for each platform:
 All formats are generated from the same internal `AgentWorkflowSpec` — stack-specific rules (language + framework conventions) are injected based on the detected profile.
 
 Key design principles:
-- **Trigger-based**: reviews only run when actual code changes are made, not on trivial edits
-- **Scoped**: security review only activates for security-relevant changes
-- **Non-destructive**: review agents report findings but do not automatically apply fixes (except clearly low-risk, in-scope corrections)
+- **Trigger-based**: agents only run when actual code changes are made, not on trivial edits
+- **Scoped**: security review only activates for security-relevant changes; simplifier only when complexity is introduced
+- **Behavior-safe**: the code simplifier NEVER changes external behavior, public APIs, or observable side effects
+- **Non-destructive**: review agents and test guard report findings but do not automatically apply fixes
 - **Quiet**: findings are only reported when issues are found (no noise on clean code)
-- **Stack-aware**: review rules are tailored to the detected languages and frameworks
+- **Stack-aware**: all agent rules are tailored to the detected languages and frameworks
 
 ## What can be generated
 
@@ -349,9 +354,9 @@ For a target repository:
 - optional `.github/instructions/*.instructions.md`
 
 Agent workflow files (generated automatically alongside the targets above):
-- `.claude/agents/code-reviewer.md` + `.claude/agents/security-reviewer.md` — native Claude Code subagents (when claude target is selected)
-- `.agents/skills/code-reviewer/SKILL.md` + `.agents/skills/security-reviewer/SKILL.md` — cross-platform Agent Skills (when codex, gemini, or copilot target is selected)
-- `.junie/skills/code-reviewer/SKILL.md` + `.junie/skills/security-reviewer/SKILL.md` — Junie-specific skills (when junie target is selected)
+- `.claude/agents/{code-reviewer,security-reviewer,code-simplifier,test-guard}.md` — native Claude Code subagents (when claude target is selected)
+- `.agents/skills/{code-reviewer,security-reviewer,code-simplifier,test-guard}/SKILL.md` — cross-platform Agent Skills (when codex, gemini, or copilot target is selected)
+- `.junie/skills/{code-reviewer,security-reviewer,code-simplifier,test-guard}/SKILL.md` — Junie-specific skills (when junie target is selected)
 
 ## Requirements
 
