@@ -7,23 +7,32 @@
 
 ## Why rulesmith?
 
-AI coding assistants are powerful — until you point them at a real production
-codebase. Then they hallucinate folder structures, ignore your conventions,
-and generate code that looks right but doesn't belong in your project.
+AI coding assistants are powerful — until you point them at a real
+production codebase. Then they hallucinate folder structures, ignore
+your conventions, and generate code that looks right but doesn't
+belong in your project.
 
-rulesmith exists because I got tired of babysitting AI on serious codebases.
+rulesmith exists because I got tired of babysitting AI on serious
+codebases.
 
-It scans your actual repository, collects deterministic evidence about how
-your project is built — architecture, naming patterns, error handling,
-dependency structure — and turns that into strict, project-specific
-instruction files that Codex, Claude, Junie, Gemini, Copilot, and
-Antigravity can follow.
+It works in two phases: first, it scans your repository and collects
+deterministic evidence — architecture, naming patterns, dependencies,
+error handling — without calling any AI model. Then it hands that
+evidence to your own AI assistant (Codex, Claude, Junie, Gemini,
+Copilot, Antigravity), which reads your actual source files,
+interprets the patterns, and produces strict, project-specific
+instruction files that it and other AI agents will follow on
+future runs.
 
-Just your repo's real patterns, turned into rules that make AI behave
-like a developer who actually read the codebase.
+No cloud dependency on rulesmith's side. No third-party AI calls
+you don't control. Your AI, your subscription, your data.
 
-If you're working on anything beyond a todo app, this is the missing layer
-between "AI can write code" and "AI can write code that fits our project."
+The result: AI that behaves like a developer who actually read
+the codebase — because it did.
+
+If you're working on anything beyond a todo app, this is the
+missing layer between "AI can write code" and "AI can write code
+that fits our project."
 
 ---
 
