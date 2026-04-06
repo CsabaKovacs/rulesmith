@@ -5,6 +5,28 @@
 [![Test](https://img.shields.io/badge/test-pnpm__r_test-1f883d?logo=vitest)](#requirements)
 [![License](https://img.shields.io/github/license/CsabaKovacs/rulesmith)](LICENSE)
 
+## Why rulesmith?
+
+AI coding assistants are powerful — until you point them at a real production
+codebase. Then they hallucinate folder structures, ignore your conventions,
+and generate code that looks right but doesn't belong in your project.
+
+rulesmith exists because I got tired of babysitting AI on serious codebases.
+
+It scans your actual repository, collects deterministic evidence about how
+your project is built — architecture, naming patterns, error handling,
+dependency structure — and turns that into strict, project-specific
+instruction files that Codex, Claude, Junie, Gemini, Copilot, and
+Antigravity can follow.
+
+Just your repo's real patterns, turned into rules that make AI behave
+like a developer who actually read the codebase.
+
+If you're working on anything beyond a todo app, this is the missing layer
+between "AI can write code" and "AI can write code that fits our project."
+
+---
+
 **Map messy codebases safely. Generate evidence-backed agent instructions. Stay local-first.**
 
 `rulesmith` is an open-source **CLI + MCP server** for teams that want high-quality AI coding behavior on real-world repositories.
